@@ -55,6 +55,13 @@ All projects in this artifact, including the Elixir standard library:
 From the repository root:
 
 ```sh
+make help
+```
+
+This prints the available targets and the common variables for selecting repos,
+run ids, timeouts, and tool paths.
+
+```sh
 make check
 ```
 
@@ -77,6 +84,14 @@ make reproduce-full
 This runs the full external `ept` corpus plus a forced Elixir standard-library
 compile under the same run id. It is expensive and writes raw JSONL under
 `results/guard-exactness/<run-id>/raw/`.
+
+```sh
+make clean
+```
+
+This removes generated Elixir checkouts, reproduction run outputs, repo buckets,
+Python caches, and packaged raw artifacts. It does not remove committed summary
+files under `experiments/01-guard-exactness/results/`.
 
 Useful knobs:
 

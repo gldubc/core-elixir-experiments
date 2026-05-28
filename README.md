@@ -25,6 +25,9 @@ checksums or packaging instructions for large raw data.
 ## Commands
 
 ```sh
+# Show available targets and variables.
+make help
+
 # Lightweight consistency check for committed summaries plus patch apply check.
 make check
 
@@ -33,4 +36,7 @@ make reproduce-smoke
 
 # Reproduce the full guard-exactness run. This is intentionally expensive.
 make reproduce-full
+
+# Remove generated checkouts, raw run outputs, caches, and packaged artifacts.
+make clean
 ```

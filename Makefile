@@ -13,7 +13,33 @@ SMOKE_REPO_ARGS = $(foreach repo,$(if $(REPOS),$(REPOS),ExDoc),--repo $(repo))
 RUN_ID_ARG = $(if $(RUN_ID),--run-id $(RUN_ID),)
 RUN_DIR_ARG = $(if $(RUN_DIR),--run-dir $(RUN_DIR),)
 
-.PHONY: check check-artifact verify-patch setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
+.DEFAULT_GOAL := help
+
+.PHONY: help clean check check-artifact verify-patch setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
+
+help:
+	@printf '%s\n' 'Core Elixir experiment artifact targets:'
+	@printf '%s\n' ''
+	@printf '%s\n' '  make check             Validate committed summaries and compiler patch.'
+	@printf '%s\n' '  make reproduce-smoke   Reproduce a small ExDoc guard-exactness run.'
+	@printf '%s\n' '  make reproduce-full    Reproduce the full corpus plus stdlib.'
+	@printf '%s\n' '  make prepare-deps      Prepare external repo dependencies with system Mix.'
+	@printf '%s\n' '  make summarize         Regenerate summaries from RUN_DIR raw JSONL.'
+	@printf '%s\n' '  make package-raw       Package RUN_DIR raw JSONL and per-site CSV.'
+	@printf '%s\n' '  make clean             Remove generated build, result, cache, and artifact state.'
+	@printf '%s\n' ''
+	@printf '%s\n' 'Useful variables:'
+	@printf '%s\n' '  REPOS="ExDoc Credo"'
+	@printf '%s\n' '  RUN_ID=01-guard-exactness-rerun'
+	@printf '%s\n' '  RUN_DIR=results/guard-exactness/<run-id>'
+	@printf '%s\n' '  COMPILE_TIMEOUT=60'
+	@printf '%s\n' '  SYSTEM_MIX=/path/to/mix'
+	@printf '%s\n' '  ELIXIR_ROOT=build/elixir-guard-exactness'
+
+clean:
+	rm -rf "$(BUILD_DIR)" results artifacts
+	find . -type d -name __pycache__ -prune -exec rm -rf {} +
+	find "$(EXPERIMENT_DIR)/tools" -maxdepth 1 -type d -name 'repos-*' -exec rm -rf {} +
 
 check: check-artifact verify-patch
 
