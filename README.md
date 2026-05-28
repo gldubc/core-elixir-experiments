@@ -11,18 +11,14 @@ The repository is organized by numbered experiments:
 - `experiments/02-arrow-return-informativeness`: inferred-arrow return
   informativeness instrumentation and selected open-source project results.
 
-Large raw outputs are not committed to git. Each experiment should commit the
-code needed to reproduce the run, exact commit metadata, summary tables, and
-checksums or packaging instructions for large raw data.
+Each experiment directory contains its own README with the measurement, the
+paper result, the code versions used, and reproduction commands. The repository
+keeps the small artifacts needed to inspect and rerun the experiments: compiler
+patches, drivers, summary tables, logs, and paper snippets.
 
-## Repository Policy
-
-- Keep experiment names stable and numbered.
-- Commit scripts, patches, summaries, metadata, and paper table snippets.
-- Do not commit per-process raw JSONL dumps or other large generated artifacts.
-- Put large raw archives in GitHub Releases or a long-term artifact archive.
-- Record exact upstream commits and command lines in each experiment directory.
-- Use Python for reproduction drivers.
+Large raw outputs, dependency checkouts, compiler builds, and generated project
+repositories are excluded from git. When such local-only files matter for a
+result, the corresponding experiment README names them explicitly.
 
 ## Commands
 
