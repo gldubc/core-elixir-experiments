@@ -20,6 +20,7 @@ checksums or packaging instructions for large raw data.
 - Do not commit per-process raw JSONL dumps or other large generated artifacts.
 - Put large raw archives in GitHub Releases or a long-term artifact archive.
 - Record exact upstream commits and command lines in each experiment directory.
+- Use Python for reproduction drivers.
 
 ## Commands
 

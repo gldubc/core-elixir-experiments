@@ -12,13 +12,11 @@ The compiler instrumentation is off by default. It emits JSONL only when
   `095c1649c59651a959c57ed15628ea3aebc388d3`.
 - `tools/perf.py`: experiment snapshot of the `ept` perf backend with
   `--guard-exactness`.
-- `tools/ept`: local user-facing wrapper snapshot. It forwards unknown flags to
-  `perf.py`.
-- `tools/reproduce_guard_exactness.sh`: setup, dependency preparation,
+- `tools/reproduce_guard_exactness.py`: setup, dependency preparation,
   collection, stdlib collection, and summarization driver.
 - `tools/prepare_dependencies.py`: prepares external repo dependencies with the
   system `mix` before instrumented project compilation.
-- `tools/verify_compiler_patch.sh`: checks that the compiler patch applies to
+- `tools/verify_compiler_patch.py`: checks that the compiler patch applies to
   the recorded Elixir commit.
 - `results/guard_exactness_summary.csv`: deduplicated project summaries.
 - `results/projects.csv`: project commits, sizes, compile status, and counts.
@@ -90,7 +88,7 @@ make prepare-deps REPOS="Phoenix Ecto" SYSTEM_MIX=/opt/homebrew/bin/mix
 
 ## Reproduction Steps
 
-The Make targets delegate to `tools/reproduce_guard_exactness.sh`. The full run
+The Make targets delegate to `tools/reproduce_guard_exactness.py`. The full run
 does this:
 
 1. clone Elixir into `build/elixir-guard-exactness`;
