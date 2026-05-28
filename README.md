@@ -21,8 +21,15 @@ checksums or packaging instructions for large raw data.
 - Put large raw archives in GitHub Releases or a long-term artifact archive.
 - Record exact upstream commits and command lines in each experiment directory.
 
-## Quick Check
+## Commands
 
 ```sh
+# Lightweight consistency check for committed summaries plus patch apply check.
 make check
+
+# Reproduce a small run on ExDoc.
+make reproduce-smoke
+
+# Reproduce the full guard-exactness run. This is intentionally expensive.
+make reproduce-full
 ```

@@ -14,6 +14,12 @@ The compiler instrumentation is off by default. It emits JSONL only when
   `--guard-exactness`.
 - `tools/ept`: local user-facing wrapper snapshot. It forwards unknown flags to
   `perf.py`.
+- `tools/reproduce_guard_exactness.sh`: setup, dependency preparation,
+  collection, stdlib collection, and summarization driver.
+- `tools/prepare_dependencies.py`: prepares external repo dependencies with the
+  system `mix` before instrumented project compilation.
+- `tools/verify_compiler_patch.sh`: checks that the compiler patch applies to
+  the recorded Elixir commit.
 - `results/guard_exactness_summary.csv`: deduplicated project summaries.
 - `results/projects.csv`: project commits, sizes, compile status, and counts.
 - `results/paper_projects.csv`: the six projects used in the main paper table.
@@ -46,64 +52,74 @@ All projects in this artifact, including the Elixir standard library:
 - Exact pairs: `164,905`
 - Weighted exactness: `81.48%`
 
-## Reproduction Outline
+## Make Targets
 
-Start from a clean Elixir checkout at the recorded commit:
+From the repository root:
 
 ```sh
-git clone https://github.com/elixir-lang/elixir.git build/elixir
-git -C build/elixir checkout 095c1649c59651a959c57ed15628ea3aebc388d3
-git -C build/elixir apply ../../experiments/01-guard-exactness/compiler-patches/guard-instrumentation.patch
+make check
 ```
 
-Build the instrumented compiler:
+This verifies the committed summaries and checks that the compiler patch applies
+to the recorded Elixir commit. On the first run it creates
+`build/patch-check-elixir`. It does not run the corpus.
 
 ```sh
-cd build/elixir
-make clean
-make
+make reproduce-smoke
 ```
 
-Run external repositories through `ept`/`perf.py`:
+This clones/builds the instrumented compiler, prepares ExDoc dependencies with
+the system `mix`, runs ExDoc with guard-exactness instrumentation, and summarizes
+the run.
 
 ```sh
-ELIXIR_PERF=$PWD/experiments/01-guard-exactness/tools/perf.py \
-  experiments/01-guard-exactness/tools/ept \
+make reproduce-full
+```
+
+This runs the full external `ept` corpus plus a forced Elixir standard-library
+compile under the same run id. It is expensive and writes raw JSONL under
+`results/guard-exactness/<run-id>/raw/`.
+
+Useful knobs:
+
+```sh
+make reproduce-smoke REPOS="ExDoc Credo"
+make reproduce-full RUN_ID=01-guard-exactness-rerun COMPILE_TIMEOUT=60
+make prepare-deps REPOS="Phoenix Ecto" SYSTEM_MIX=/opt/homebrew/bin/mix
+```
+
+## Reproduction Steps
+
+The Make targets delegate to `tools/reproduce_guard_exactness.sh`. The full run
+does this:
+
+1. clone Elixir into `build/elixir-guard-exactness`;
+2. check out `095c1649c59651a959c57ed15628ea3aebc388d3`;
+3. apply `compiler-patches/guard-instrumentation.patch`;
+4. build the instrumented compiler;
+5. clone the recorded external repo commits into the perf bucket;
+6. prepare external repo dependencies with the system `mix`;
+7. run external repos through the experiment `perf.py` with `--guard-exactness`;
+8. force a standard-library compile with the same guard-exactness environment;
+9. regenerate CSV, TeX, and metadata summaries from raw JSONL.
+
+The external repo command is equivalent to:
+
+```sh
+python3 experiments/01-guard-exactness/tools/perf.py \
+  --elixir-root build/elixir-guard-exactness \
+  --tc-table \
   --guard-exactness \
   --guard-exactness-run-id 01-guard-exactness-20260527 \
+  --guard-exactness-root results/guard-exactness/01-guard-exactness-20260527 \
   --compile-timeout 60 \
   --no-validate-compile-env \
   --no-rebuild-on-commit-change
 ```
 
-Run the Elixir standard library separately with the same run id:
-
-```sh
-RUN_DIR=$PWD/results/guard-exactness/01-guard-exactness-20260527
-ELIXIR_ROOT=$PWD/build/elixir
-
-ELIXIR_GUARD_EXACTNESS_DIR=$RUN_DIR/raw/ElixirStdlib \
-ELIXIR_GUARD_EXACTNESS_PROJECT=ElixirStdlib \
-ELIXIR_GUARD_EXACTNESS_REPO_ROOT=$ELIXIR_ROOT \
-ELIXIR_GUARD_EXACTNESS_RUN_ID=01-guard-exactness-20260527 \
-  make -C "$ELIXIR_ROOT" compile
-```
-
-Regenerate summaries from raw JSONL:
-
-```sh
-python3 experiments/01-guard-exactness/tools/perf.py \
-  --elixir-root build/elixir \
-  --tc-table \
-  --guard-exactness \
-  --guard-exactness-run-id 01-guard-exactness-20260527 \
-  --guard-exactness-summarize-only
-```
-
-Dependency note: the archived run prepared external project dependencies with
-the system Mix where possible, then used the instrumented compiler only for the
-analyzed project compile. This experiment does not change `perf.py` to enforce
-that as a general policy.
+The dependency preparation is intentionally outside `perf.py`: this artifact
+prepares dependencies with the system Mix and writes the existing perf sentinel
+so `perf.py` does not rebuild dependencies with the instrumented compiler.
 
 ## Validation
 
