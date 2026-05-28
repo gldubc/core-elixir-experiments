@@ -1,0 +1,18 @@
+project,analyzed_pairs,exact_pairs,exactness_percent,compile_status
+AbsintheFederation,413,407,98.55,success
+Ash,30358,29004,95.54,success
+Blockscout,52938,49417,93.35,success
+Credo,11448,8225,71.85,success
+Ecto,5207,4415,84.79,success
+ExDoc,1800,1533,85.17,success
+Flame,686,648,94.46,success
+HexPm,12048,10595,87.94,success
+Livebook,15459,14105,91.24,success
+MixSBOM,7820,5049,64.57,success
+Nerves,1112,1029,92.54,success
+OpenApiSpex,1693,1544,91.20,success
+Phoenix,3542,3318,93.68,success
+PhoenixLiveView,5290,4480,84.69,success
+Postgrex,7563,2634,34.83,success
+SQL,6098,4283,70.24,timeout after 60s
+Spitfire,1226,1069,87.19,success

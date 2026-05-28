@@ -1,0 +1,273 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+perf="${ELIXIR_PERF:-$HOME/Code/research/elixir/perf/perf.py}"
+main_root="${EPT_MAIN_ROOT:-$HOME/Code/research/elixir/main}"
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/ept"
+main_tc_table_cache="$cache_dir/main-tc-table.txt"
+main_serious_tc_table_cache="$cache_dir/main-serious-tc-table.txt"
+main_serious_tc_table_date_cache="$cache_dir/main-serious-tc-table.date"
+main_serious_tc_table_meta_cache="$cache_dir/main-serious-tc-table.meta"
+
+show_repos=false
+show_main=false
+show_serious_main=false
+serious_run=false
+selected_repos=()
+perf_args=("$@")
+parse_args=("$@")
+
+format_file_date() {
+  local file="$1"
+
+  if stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S %z" "$file" >/dev/null 2>&1; then
+    stat -f "%Sm" -t "%Y-%m-%d %H:%M:%S %z" "$file"
+  else
+    stat -c "%y" "$file" | sed 's/\.[0-9]*//'
+  fi
+}
+
+cached_date() {
+  local cache="$1"
+  local date_cache="$2"
+
+  if [[ -s "$date_cache" ]]; then
+    cat "$date_cache"
+  else
+    format_file_date "$cache"
+  fi
+}
+
+print_table_with_date() {
+  local label="$1"
+  local table="$2"
+  local date_value="$3"
+  local commit_value="${4:-}"
+
+  printf '%s: %s\n\n' "$label" "$date_value"
+  if [[ -n "$commit_value" ]]; then
+    printf 'Commit: %s\n\n' "$commit_value"
+  fi
+  cat "$table"
+}
+
+current_commit_metadata() {
+  local root="$1"
+  local commit title
+
+  commit="$(git -C "$root" rev-parse --short=9 HEAD 2>/dev/null || true)"
+  title="$(git -C "$root" log -1 --format=%s HEAD 2>/dev/null || true)"
+  if [[ -n "$commit" && -n "$title" ]]; then
+    printf '%s %s\n' "$commit" "$title"
+  fi
+  return 0
+}
+
+commit_metadata_before_date() {
+  local root="$1"
+  local date_value="$2"
+  local ref commit title
+
+  ref="$(git -C "$root" rev-list -1 --before="$date_value" HEAD 2>/dev/null || true)"
+  if [[ -z "$ref" ]]; then
+    return 0
+  fi
+
+  commit="$(git -C "$root" rev-parse --short=9 "$ref" 2>/dev/null || true)"
+  title="$(git -C "$root" log -1 --format=%s "$ref" 2>/dev/null || true)"
+  if [[ -n "$commit" && -n "$title" ]]; then
+    printf '%s %s\n' "$commit" "$title"
+  fi
+  return 0
+}
+
+write_serious_metadata() {
+  local date_value="$1"
+  local commit_value="$2"
+
+  {
+    printf 'date=%s\n' "$date_value"
+    if [[ -n "$commit_value" ]]; then
+      printf 'commit=%s\n' "$commit_value"
+    fi
+  } > "$main_serious_tc_table_meta_cache"
+}
+
+metadata_value() {
+  local key="$1"
+  local file="$2"
+
+  if [[ -s "$file" ]]; then
+    sed -n "s/^$key=//p" "$file" | head -n 1
+  fi
+  return 0
+}
+
+latest_serious_result() {
+  python3 - "$perf" <<'PY'
+from pathlib import Path
+import sys
+
+perf_path = Path(sys.argv[1]).expanduser()
+results_dir = perf_path.resolve().parent / "results"
+header_fragment = "TC Time (mean +- 95% CI)"
+candidates = []
+
+if results_dir.is_dir():
+    for path in results_dir.glob("*.txt"):
+        try:
+            with path.open("r", encoding="utf-8", errors="ignore") as result:
+                first_line = result.readline()
+        except OSError:
+            continue
+        if header_fragment in first_line:
+            try:
+                candidates.append((path.stat().st_mtime, path))
+            except OSError:
+                continue
+
+if candidates:
+    print(max(candidates, key=lambda item: item[0])[1])
+PY
+}
+
+while ((${#parse_args[@]})); do
+  arg="${parse_args[0]}"
+  parse_args=("${parse_args[@]:1}")
+
+  case "$arg" in
+    --main)
+      show_main=true
+      ;;
+    --serious-main)
+      show_serious_main=true
+      ;;
+    --serious-run)
+      serious_run=true
+      ;;
+    --repos)
+      show_repos=true
+      ;;
+    -r|--repo)
+      if ((${#parse_args[@]} == 0)); then
+        echo "ept: $arg requires a repository name" >&2
+        exit 2
+      fi
+      selected_repos+=("${parse_args[0]}")
+      parse_args=("${parse_args[@]:1}")
+      ;;
+    --repo=*)
+      selected_repos+=("${arg#--repo=}")
+      ;;
+    -r?*)
+      selected_repos+=("${arg#-r}")
+      ;;
+  esac
+done
+
+if $show_serious_main; then
+  if [[ -s "$main_serious_tc_table_cache" ]]; then
+    date_value="$(metadata_value date "$main_serious_tc_table_meta_cache")"
+    if [[ -z "$date_value" ]]; then
+      date_value="$(cached_date "$main_serious_tc_table_cache" "$main_serious_tc_table_date_cache")"
+    fi
+    commit_value="$(metadata_value commit "$main_serious_tc_table_meta_cache")"
+    if [[ -z "$commit_value" ]]; then
+      commit_value="$(commit_metadata_before_date "$main_root" "$date_value")"
+    fi
+
+    print_table_with_date \
+      "Last serious main run" \
+      "$main_serious_tc_table_cache" \
+      "$date_value" \
+      "$commit_value"
+    exit
+  fi
+
+  serious_result="$(latest_serious_result)"
+  if [[ -n "$serious_result" && -s "$serious_result" ]]; then
+    date_value="$(format_file_date "$serious_result")"
+    commit_value="$(commit_metadata_before_date "$main_root" "$date_value")"
+
+    print_table_with_date \
+      "Last serious main run" \
+      "$serious_result" \
+      "$date_value" \
+      "$commit_value"
+    exit
+  fi
+
+  echo "ept: no cached serious --tc-table result for $main_root" >&2
+  echo "ept: run ept --serious-run from $main_root once to populate it" >&2
+  exit 1
+fi
+
+if $show_main; then
+  if [[ ! -s "$main_tc_table_cache" ]]; then
+    echo "ept: no cached --tc-table result for $main_root" >&2
+    echo "ept: run ept from $main_root once to populate it" >&2
+    exit 1
+  fi
+
+  cat "$main_tc_table_cache"
+  exit
+fi
+
+if $show_repos; then
+  repo_list_args=("$perf")
+  if ((${#selected_repos[@]})); then
+    repo_list_args+=("${selected_repos[@]}")
+  fi
+
+  python3 - "${repo_list_args[@]}" <<'PY'
+import importlib.util
+import sys
+
+perf_path = sys.argv[1]
+selected = set(sys.argv[2:])
+spec = importlib.util.spec_from_file_location("_ept_perf", perf_path)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+
+repo_names = module.DEFAULT_REPO_NAMES if not selected else module.REPO_NAMES
+
+for name in repo_names:
+    if not selected or name in selected:
+        print(name)
+PY
+  exit
+fi
+
+if ! root="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  root="$(pwd -P)"
+fi
+
+cd "$(dirname "$perf")"
+cmd=("$perf" --elixir-root "$root" --tc-table --compile-timeout "${EPT_COMPILE_TIMEOUT:-15}")
+if ((${#perf_args[@]})); then
+  cmd+=("${perf_args[@]}")
+fi
+
+if [[ "$(cd "$root" && pwd -P)" != "$(cd "$main_root" && pwd -P)" ]]; then
+  exec "${cmd[@]}"
+fi
+
+tmp_stdout="$(mktemp)"
+trap 'rm -f "$tmp_stdout"' EXIT
+run_commit_metadata="$(current_commit_metadata "$main_root")"
+
+if "${cmd[@]}" | tee "$tmp_stdout"; then
+  if grep -q '^| Codebase |' "$tmp_stdout"; then
+    mkdir -p "$cache_dir"
+    if $serious_run || grep -q 'TC Time (mean +- 95% CI)' "$tmp_stdout"; then
+      cp "$tmp_stdout" "$main_serious_tc_table_cache"
+      run_date="$(date "+%Y-%m-%d %H:%M:%S %z")"
+      printf '%s\n' "$run_date" > "$main_serious_tc_table_date_cache"
+      write_serious_metadata "$run_date" "$run_commit_metadata"
+    else
+      cp "$tmp_stdout" "$main_tc_table_cache"
+    fi
+  fi
+else
+  exit $?
+fi

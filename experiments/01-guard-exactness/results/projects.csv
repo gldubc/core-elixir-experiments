@@ -1,0 +1,19 @@
+project,repo_url,repo_dir,commit,branch_at_collection,loc,files,modules,compile_status,analyzed_pairs,exact_pairs,exactness_percent,guarded_analyzed_pairs,guarded_exact_pairs,guarded_exactness_percent,raw_rows,retained_invocations,jsonl_files
+AbsintheFederation,https://github.com/DivvyPayHQ/absinthe_federation.git,absinthe_federation,d1735e37509157d0f10116d4f76286b09c86d3a9,detached,1736,18,23,success,413,407,98.55,61,57,93.44,1014,798,42
+Ash,https://github.com/ash-project/ash.git,ash,5790310b740bfaf62ab6ceedc692bfc94c1bab60,detached,108532,572,676,success,30358,29004,95.54,5214,4753,91.16,101683,65453,2275
+Blockscout,https://github.com/blockscout/blockscout.git,blockscout,d9edfc30527a0e5d4ec86f923f20efcd8bfede01,detached,183142,1375,1423,success,52938,49417,93.35,6325,5826,92.11,156694,112718,3750
+Credo,https://github.com/rrrene/credo.git,credo,2d116684cd4b16b505031a8d84c6ae8ee48617bd,detached,23712,262,327,success,11448,8225,71.85,1293,958,74.09,23816,23310,551
+Ecto,https://github.com/elixir-ecto/ecto.git,ecto,cf3a5b7219a552c24aae24bf5eef7354c1184b8a,master,25559,56,147,success,5207,4415,84.79,857,562,65.58,10837,10609,195
+ElixirStdlib,https://github.com/elixir-lang/elixir.git,elixir,095c1649c59651a959c57ed15628ea3aebc388d3,guard-instrumentation,213015,567,2034,success,37685,23150,61.43,6454,2589,40.11,155017,150252,1295
+ExDoc,https://github.com/elixir-lang/ex_doc.git,ex_doc,bc909685fd41f0e16f6714403bf520301ef3f28f,main,5882,30,36,success,1800,1533,85.17,295,238,80.68,3627,3529,72
+Flame,https://github.com/phoenixframework/flame.git,flame,27b94dafd874cd9747007205d25ee2d81349de07,main,2806,16,20,success,686,648,94.46,151,149,98.68,1529,1435,49
+HexPm,https://github.com/hexpm/hexpm.git,hexpm,50587373a09fd55100961cb9c7501e501db472e5,detached,28315,282,301,success,12048,10595,87.94,1376,1254,91.13,50574,33036,668
+Livebook,https://github.com/livebook-dev/livebook.git,livebook,b1d98d2b68d4ee998a78f4214232d92b890a652d,detached,55119,264,266,success,15459,14105,91.24,1387,1174,84.64,73856,51209,662
+MixSBOM,https://github.com/erlef/mix_sbom.git,mix_sbom,c72888d4e1d3f9a7693cc1faf952971216ac1f6a,detached,13328,552,550,success,7820,5049,64.57,492,204,41.46,20663,15437,1512
+Nerves,https://github.com/nerves-project/nerves.git,nerves,713da00682c9f70280ee78e00d994115cc9153eb,detached,4831,51,52,success,1112,1029,92.54,147,138,93.88,2355,2321,103
+OpenApiSpex,https://github.com/open-api-spex/open_api_spex.git,open_api_spex,f2c71bf320045b76c4bc2ea9a7a056c8d9092197,detached,7123,80,103,success,1693,1544,91.20,313,243,77.64,3539,3371,221
+Phoenix,https://github.com/phoenixframework/phoenix.git,phoenix,d8f26700ea167a4e95d1d32314751ae1b5eb74f2,main,17863,74,110,success,3542,3318,93.68,600,551,91.83,7244,7030,181
+PhoenixLiveView,https://github.com/phoenixframework/phoenix_live_view.git,phoenix_live_view,1fedd12dd000ceaf67da6ef26ca5d51dc8a64b54,main,23507,55,97,success,5290,4480,84.69,816,641,78.55,12108,11371,159
+Postgrex,https://github.com/elixir-ecto/postgrex.git,postgrex,bd059dc01280f2932b6af5f36a5c8942e031ba5d,master,9153,70,88,success,7563,2634,34.83,294,142,48.30,15685,15447,188
+SQL,https://github.com/elixir-dbvisor/sql.git,sql,bd316cd7b793e4d83b3e3545d506a8b00926dd32,main,3538,18,19,timeout after 60s,6098,4283,70.24,220,57,25.91,6141,6138,21
+Spitfire,https://github.com/elixir-tools/spitfire.git,spitfire,47fad18a1bf7ca3ad5bca3b4d06a121e4ddceeb6,detached,3853,5,7,success,1226,1069,87.19,183,102,55.74,2720,2638,16

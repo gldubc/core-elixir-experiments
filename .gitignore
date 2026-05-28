@@ -1,0 +1,19 @@
+.DS_Store
+__pycache__/
+*.pyc
+
+# Local checkouts/build products used by reproduction scripts.
+build/
+repos/
+repos-*/
+/results/
+
+# Large generated experiment artifacts. Keep summaries in git; put these in
+# release assets or an external archive when needed.
+raw/
+*.jsonl
+*.jsonl.gz
+*.tar
+*.tar.gz
+*.tar.zst
+guard_exactness_rows.csv

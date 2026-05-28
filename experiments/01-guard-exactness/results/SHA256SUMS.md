@@ -1,0 +1,15 @@
+# SHA-256 checksums for archived guard-exactness artifacts
+
+## Files committed in this repository
+7e6afa556860ea91ffb77d2f1caf35bb12b41e2b91a2442bbdc26d836e51fda3  experiments/01-guard-exactness/compiler-patches/guard-instrumentation.patch
+1e9762f001f8d25d316c8d64f7b10dd819b9a82abdf936fb95ab3af8fc2bef4c  experiments/01-guard-exactness/tools/perf.py
+68fa8fd377c0095b4941de1e5ecb1f53778041065cbe45bd8009568b879c792d  experiments/01-guard-exactness/tools/ept
+ebae3b9af03819454326250a062cad0cf5f4f1e5722056510a0a7b6ecfd744b6  experiments/01-guard-exactness/results/guard_exactness_summary.csv
+b47c18fad708e6ebc3ecb08e78781f5040011fcc163588a86b69dcc368cd28ef  experiments/01-guard-exactness/results/projects.csv
+b7f77ba94b9593ccc09e25756d2a06f116c295ee669821da521e7d712d2af49d  experiments/01-guard-exactness/results/paper_projects.csv
+ee2f4a9fc86acbb537a73bb1d8f5399414b82796adcd4d2b3733fe7f0f33e0a7  experiments/01-guard-exactness/results/ept_corpus_table.csv
+0c31d048aecc1c7a343d0998351dd2e64469ffb5ccb3062c7f8fdd5f228e3d56  experiments/01-guard-exactness/results/metadata.json
+8fe8763128c10fb4816a02c599c8b1304ba9e7a8202c6c57622160bda6e27ef0  experiments/01-guard-exactness/results/precise_guards_table.tex
+
+## Large local artifacts excluded from git
+7d16cbc1afa89f3b0cf4ced8577c9106c7c4b4a651ba90e71ca480be27727725  <local-final-20260527>/guard_exactness_rows.csv
