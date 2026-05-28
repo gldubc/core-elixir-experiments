@@ -40,3 +40,10 @@ make reproduce-full
 # Remove generated checkouts, raw run outputs, caches, and packaged artifacts.
 make clean
 ```
+
+Public targets ask for confirmation before doing work. Use `CONFIRM=0` for
+scripted runs, for example:
+
+```sh
+make check CONFIRM=0
+```

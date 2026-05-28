@@ -61,6 +61,9 @@ make help
 This prints the available targets and the common variables for selecting repos,
 run ids, timeouts, and tool paths.
 
+Public targets print what they are about to do and ask for confirmation. Pass
+`CONFIRM=0` to skip prompts in scripted runs.
+
 ```sh
 make check
 ```
