@@ -1,4 +1,5 @@
 EXPERIMENT_DIR := experiments/01-guard-exactness
+ARROW_EXPERIMENT_DIR := experiments/02-arrow-return-informativeness
 ELIXIR_COMMIT := 095c1649c59651a959c57ed15628ea3aebc388d3
 PYTHON ?= python3
 BUILD_DIR ?= build
@@ -19,18 +20,20 @@ confirm = @$(PYTHON) scripts/confirm.py --enabled "$(CONFIRM)" "$(1)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean check check-artifact verify-patch setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
+.PHONY: help clean check check-artifact verify-patch check-arrow-return verify-arrow-return-patch reproduce-experiment-02-smoke setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
 
 help:
 	@printf '%s\n' 'Core Elixir experiment artifact targets:'
 	@printf '%s\n' ''
-	@printf '%s\n' '  make check             Validate committed summaries and compiler patch.'
-	@printf '%s\n' '  make reproduce-smoke   Reproduce a small ExDoc guard-exactness run.'
-	@printf '%s\n' '  make reproduce-full    Reproduce the full corpus plus stdlib.'
-	@printf '%s\n' '  make prepare-deps      Prepare external repo dependencies with system Mix.'
-	@printf '%s\n' '  make summarize         Regenerate summaries from RUN_DIR raw JSONL.'
-	@printf '%s\n' '  make package-raw       Package RUN_DIR raw JSONL and per-site CSV.'
-	@printf '%s\n' '  make clean             Remove generated build, result, cache, and artifact state.'
+	@printf '%s\n' '  make check                            Validate committed summaries and compiler patches.'
+	@printf '%s\n' '  make reproduce-smoke                  Reproduce a small ExDoc guard-exactness run.'
+	@printf '%s\n' '  make reproduce-full                   Reproduce the full guard-exactness run.'
+	@printf '%s\n' '  make reproduce-experiment-02-smoke    Validate the arrow-return summary table.'
+	@printf '%s\n' '  make verify-arrow-return-patch        Check the arrow-return compiler patch applies.'
+	@printf '%s\n' '  make prepare-deps                     Prepare external repo dependencies with system Mix.'
+	@printf '%s\n' '  make summarize                        Regenerate summaries from RUN_DIR raw JSONL.'
+	@printf '%s\n' '  make package-raw                      Package RUN_DIR raw JSONL and per-site CSV.'
+	@printf '%s\n' '  make clean                            Remove generated build, result, cache, and artifact state.'
 	@printf '%s\n' ''
 	@printf '%s\n' 'Useful variables:'
 	@printf '%s\n' '  REPOS="ExDoc Credo"'
@@ -48,8 +51,8 @@ clean:
 	find "$(EXPERIMENT_DIR)/tools" -maxdepth 1 -type d -name 'repos-*' -exec rm -rf {} +
 
 check:
-	$(call confirm,Validating committed summaries and verifying the compiler patch.)
-	@$(MAKE) --no-print-directory check-artifact verify-patch CONFIRM=0
+	$(call confirm,Validating committed summaries and verifying the compiler patches.)
+	@$(MAKE) --no-print-directory check-artifact verify-patch check-arrow-return verify-arrow-return-patch CONFIRM=0
 
 check-artifact:
 	$(call confirm,Validating committed guard-exactness summary artifacts.)
@@ -66,6 +69,24 @@ check-artifact:
 verify-patch:
 	$(call confirm,Checking that the compiler patch applies to the recorded Elixir commit.)
 	$(PYTHON) $(EXPERIMENT_DIR)/tools/verify_compiler_patch.py
+
+check-arrow-return:
+	$(call confirm,Validating committed arrow-return informativeness summary artifacts.)
+	$(PYTHON) -m py_compile $(ARROW_EXPERIMENT_DIR)/tools/arrow_return_experiment.py
+	$(PYTHON) -m py_compile $(ARROW_EXPERIMENT_DIR)/tools/verify_compiler_patch.py
+	$(PYTHON) $(ARROW_EXPERIMENT_DIR)/tools/arrow_return_experiment.py \
+		validate \
+		--summary $(ARROW_EXPERIMENT_DIR)/results/summary.csv
+
+verify-arrow-return-patch:
+	$(call confirm,Checking that the arrow-return compiler patch applies to the recorded Elixir commit.)
+	$(PYTHON) $(ARROW_EXPERIMENT_DIR)/tools/verify_compiler_patch.py
+
+reproduce-experiment-02-smoke:
+	$(call confirm,Validating the archived arrow-return informativeness summary table.)
+	$(PYTHON) $(ARROW_EXPERIMENT_DIR)/tools/arrow_return_experiment.py \
+		validate \
+		--summary $(ARROW_EXPERIMENT_DIR)/results/summary.csv
 
 setup-elixir:
 	$(call confirm,Cloning or patching the instrumented Elixir checkout at $(ELIXIR_ROOT).)

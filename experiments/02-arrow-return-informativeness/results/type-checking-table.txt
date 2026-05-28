@@ -1,0 +1,19 @@
+| Codebase | LoC | Files | Modules | TC Time |
+|---|---:|---:|---:|---:|
+| Blockscout | 183,142 | 1375 | 1423 | compile failed (exit 1) |
+| Ash | 108,532 | 572 | 676 | 0.554 s |
+| Livebook | 55,119 | 264 | 266 | 0.161 s |
+| HexPm | 28,315 | 282 | 301 | 0.214 s |
+| Ecto | 25,559 | 56 | 147 | 0.033 s |
+| Credo | 23,712 | 262 | 327 | 0.066 s |
+| PhoenixLiveView | 23,507 | 55 | 97 | 0.020 s |
+| Phoenix | 17,863 | 74 | 110 | 0.024 s |
+| MixSBOM | 13,328 | 552 | 550 | 0.305 s |
+| Postgrex | 9,153 | 70 | 88 | 0.053 s |
+| OpenApiSpex | 7,123 | 80 | 103 | 0.026 s |
+| ExDoc | 5,882 | 30 | 36 | 0.014 s |
+| Nerves | 4,831 | 51 | 52 | 0.009 s |
+| Spitfire | 3,853 | 5 | 7 | 0.108 s |
+| SQL | 3,538 | 18 | 19 | 0.029 s |
+| Flame | 2,806 | 16 | 20 | 0.016 s |
+| AbsintheFederation | 1,736 | 18 | 23 | 0.005 s |

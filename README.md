@@ -8,6 +8,8 @@ The repository is organized by numbered experiments:
 
 - `experiments/01-guard-exactness`: guard-exactness instrumentation and corpus
   results.
+- `experiments/02-arrow-return-informativeness`: inferred-arrow return
+  informativeness instrumentation and selected open-source project results.
 
 Large raw outputs are not committed to git. Each experiment should commit the
 code needed to reproduce the run, exact commit metadata, summary tables, and
@@ -33,6 +35,9 @@ make check
 
 # Reproduce a small run on ExDoc.
 make reproduce-smoke
+
+# Validate the archived arrow-return informativeness table.
+make reproduce-experiment-02-smoke
 
 # Reproduce the full guard-exactness run. This is intentionally expensive.
 make reproduce-full

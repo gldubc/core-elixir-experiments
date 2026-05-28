@@ -1,0 +1,12 @@
+We also measured how often inferred function arrows carry useful return
+information in selected open-source Elixir projects.  The unit of measurement
+is an inferred arrow, not a function declaration: one function value may produce
+several arrows.  We count an arrow as informative when its return type is not
+exactly \texttt{dynamic()}; gradual return types such as
+\texttt{dynamic(integer())} are counted as informative because they retain a
+static component.
+
+Across 17 projects, the type checker inferred 69,976 arrows for 57,258
+function values.  Of these arrows, 43,158 had informative returns and 26,818
+returned exactly \texttt{dynamic()}, for a weighted informative-return ratio of
+61.68\%.

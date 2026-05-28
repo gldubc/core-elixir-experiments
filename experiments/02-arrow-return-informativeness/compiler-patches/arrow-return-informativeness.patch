@@ -1,0 +1,489 @@
+diff --git a/lib/elixir/lib/module/types.ex b/lib/elixir/lib/module/types.ex
+index a5469d49e..61df7bac6 100644
+--- a/lib/elixir/lib/module/types.ex
++++ b/lib/elixir/lib/module/types.ex
+@@ -4,7 +4,7 @@
+
+ defmodule Module.Types do
+   @moduledoc false
+-  alias Module.Types.{Apply, Descr, Expr, Helpers, Pattern}
++  alias Module.Types.{Apply, Descr, Expr, Helpers, Metrics, Pattern}
+
+   # The mode controls what happens on function application when
+   # there are gradual arguments. Non-gradual arguments always
+@@ -86,7 +86,22 @@ def infer(module, file, attrs, defs, used_private, env, {_, cache}) do
+           {_kind, inferred, context} = local_handler(meta, fun_arity, stack, context, finder)
+
+           if infer_signatures? and kind == :def and fun_arity not in @no_infer do
+-            {[{fun_arity, group_clauses_by_return(inferred)} | types], private, context}
++            {fun, arity} = fun_arity
++            grouped = group_clauses_by_return(inferred)
++
++            Metrics.record_inferred_fun!(
++              %{
++                file: file,
++                module: module,
++                function: fun,
++                arity: arity,
++                kind: :named,
++                line: Keyword.get(meta, :line)
++              },
++              grouped
++            )
++
++            {[{fun_arity, grouped} | types], private, context}
+           else
+             {types, private, context}
+           end
+diff --git a/lib/elixir/lib/module/types/expr.ex b/lib/elixir/lib/module/types/expr.ex
+index a8ad5c4b7..4fad51942 100644
+--- a/lib/elixir/lib/module/types/expr.ex
++++ b/lib/elixir/lib/module/types/expr.ex
+@@ -5,7 +5,7 @@
+ defmodule Module.Types.Expr do
+   @moduledoc false
+
+-  alias Module.Types.{Apply, Of, Pattern}
++  alias Module.Types.{Apply, Metrics, Of, Pattern}
+   import Module.Types.{Helpers, Descr}
+
+   14 = length(Macro.Env.__info__(:struct))
+@@ -510,6 +510,22 @@ def of_expr({:fn, meta, clauses}, _expected, _expr, stack, context) do
+             {add_inferred(acc, args_types, body_type), context}
+         end)
+
++      if stack.mode == :infer do
++        Metrics.record_inferred_fun!(
++          %{
++            file: stack.file,
++            module: stack.module,
++            function: :anonymous,
++            arity: length(domain),
++            kind: :anonymous,
++            line: Keyword.get(meta, :line),
++            enclosing_function: enclosing_function(stack.function),
++            enclosing_arity: enclosing_arity(stack.function)
++          },
++          acc
++        )
++      end
++
+       {fun_from_inferred_clauses(acc), context}
+     end)
+   end
+@@ -1018,6 +1034,12 @@ defp extract_head(other) do
+   defp flatten_when({:when, _meta, [left, right]}), do: [left | flatten_when(right)]
+   defp flatten_when(other), do: [other]
+
++  defp enclosing_function({fun, _arity}), do: fun
++  defp enclosing_function(_), do: nil
++
++  defp enclosing_arity({_fun, arity}), do: arity
++  defp enclosing_arity(_), do: nil
++
+   defp repack_match(left_expr, {:=, meta, [new_left, new_right]}),
+     do: repack_match({:=, meta, [left_expr, new_left]}, new_right)
+
+diff --git a/lib/elixir/src/elixir_compiler.erl b/lib/elixir/src/elixir_compiler.erl
+index a94df794a..6b4a06e75 100644
+--- a/lib/elixir/src/elixir_compiler.erl
++++ b/lib/elixir/src/elixir_compiler.erl
+@@ -222,6 +222,7 @@ bootstrap_files() ->
+      <<"module/behaviour.ex">>,
+      <<"module/types/helpers.ex">>,
+      <<"module/types/descr.ex">>,
++     <<"module/types/metrics.ex">>,
+      <<"module/types/of.ex">>,
+      <<"module/types/pattern.ex">>,
+      <<"module/types/apply.ex">>,
+diff --git a/lib/elixir/lib/module/types/metrics.ex b/lib/elixir/lib/module/types/metrics.ex
+new file mode 100644
+index 000000000..010812345
+--- /dev/null
++++ b/lib/elixir/lib/module/types/metrics.ex
+@@ -0,0 +1,103 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: 2021 The Elixir Team
++
++defmodule Module.Types.Metrics do
++  @moduledoc false
++
++  alias Module.Types.Descr
++
++  @arrow_return_env ~c"ELIXIR_TYPE_METRICS_ARROW_RETURN"
++
++  @doc false
++  def enabled? do
++    output_path() != nil
++  end
++
++  @doc false
++  def summarize_arrows({:infer, _domain, clauses}) do
++    summarize_arrows(clauses)
++  end
++
++  def summarize_arrows(clauses) when is_list(clauses) do
++    total = length(clauses)
++    exact_dynamic = Enum.count(clauses, fn {_args, return} -> return == Descr.dynamic() end)
++
++    %{
++      total_arrows: total,
++      informative_arrows: total - exact_dynamic,
++      exact_dynamic_arrows: exact_dynamic
++    }
++  end
++
++  @doc false
++  def record_inferred_fun!(metadata, inferred) when is_map(metadata) do
++    case output_path() do
++      nil ->
++        :ok
++
++      path ->
++        %{total_arrows: total, informative_arrows: informative, exact_dynamic_arrows: exact} =
++          summarize_arrows(inferred)
++
++        fields =
++          [
++            file: normalize_string(Map.get(metadata, :file)),
++            module: normalize_string(Map.get(metadata, :module)),
++            function: normalize_string(Map.get(metadata, :function)),
++            arity: Map.get(metadata, :arity),
++            kind: normalize_string(Map.get(metadata, :kind)),
++            line: Map.get(metadata, :line),
++            total_arrows: total,
++            informative_arrows: informative,
++            exact_dynamic_arrows: exact
++          ] ++ optional_fields(metadata, [:enclosing_function, :enclosing_arity])
++
++        path = String.to_charlist(path)
++        :ok = :filelib.ensure_dir(path)
++        :ok = :file.write_file(path, [encode_json_object(fields), ?\n], [:append])
++        :ok
++    end
++  end
++
++  defp output_path do
++    case :os.getenv(@arrow_return_env) do
++      false -> nil
++      [] -> nil
++      path -> List.to_string(path)
++    end
++  end
++
++  defp optional_fields(metadata, keys) do
++    for key <- keys, Map.has_key?(metadata, key) do
++      {key, normalize_optional(Map.get(metadata, key))}
++    end
++  end
++
++  defp normalize_optional(value) when is_atom(value), do: normalize_string(value)
++  defp normalize_optional(value), do: value
++
++  defp normalize_string(nil), do: nil
++  defp normalize_string(value) when is_binary(value), do: value
++  defp normalize_string(value) when is_atom(value), do: :erlang.atom_to_binary(value, :utf8)
++  defp normalize_string(value) when is_list(value), do: List.to_string(value)
++
++  defp encode_json_object(fields) do
++    [
++      ?{,
++      fields
++      |> Enum.map(fn {key, value} ->
++        [encode_json_string(:erlang.atom_to_binary(key, :utf8)), ?:, encode_json_value(value)]
++      end)
++      |> Enum.intersperse(","),
++      ?}
++    ]
++  end
++
++  defp encode_json_value(nil), do: "null"
++  defp encode_json_value(value) when is_integer(value), do: :erlang.integer_to_binary(value)
++  defp encode_json_value(value) when is_binary(value), do: encode_json_string(value)
++
++  defp encode_json_string(value) do
++    :json.encode_binary(value)
++  end
++end
+diff --git a/lib/elixir/scripts/arrow_return_metrics.exs b/lib/elixir/scripts/arrow_return_metrics.exs
+new file mode 100644
+index 000000000..86539f29e
+--- /dev/null
++++ b/lib/elixir/scripts/arrow_return_metrics.exs
+@@ -0,0 +1,141 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: 2021 The Elixir Team
++
++env = "ELIXIR_TYPE_METRICS_ARROW_RETURN"
++
++usage = fn ->
++  IO.puts(:stderr, """
++  usage:
++    bin/elixir lib/elixir/scripts/arrow_return_metrics.exs --aggregate METRICS.jsonl
++    bin/elixir lib/elixir/scripts/arrow_return_metrics.exs METRICS.jsonl -- COMMAND [ARGS...]
++  """)
++
++  System.halt(64)
++end
++
++aggregate = fn path ->
++  records =
++    path
++    |> File.stream!()
++    |> Stream.map(&String.trim/1)
++    |> Stream.reject(&(&1 == ""))
++    |> Enum.map(&JSON.decode!/1)
++
++  totals =
++    Enum.reduce(records, %{"functions" => 0, "total" => 0, "informative" => 0, "exact" => 0}, fn
++      record, acc ->
++        %{
++          acc
++          | "functions" => acc["functions"] + 1,
++            "total" => acc["total"] + record["total_arrows"],
++            "informative" => acc["informative"] + record["informative_arrows"],
++            "exact" => acc["exact"] + record["exact_dynamic_arrows"]
++        }
++    end)
++
++  by_module =
++    records
++    |> Enum.group_by(& &1["module"])
++    |> Enum.map(fn {module, module_records} ->
++      Enum.reduce(
++        module_records,
++        %{
++          "module" => module,
++          "functions" => 0,
++          "total" => 0,
++          "informative" => 0,
++          "exact" => 0
++        },
++        fn record, acc ->
++          %{
++            acc
++            | "functions" => acc["functions"] + 1,
++              "total" => acc["total"] + record["total_arrows"],
++              "informative" => acc["informative"] + record["informative_arrows"],
++              "exact" => acc["exact"] + record["exact_dynamic_arrows"]
++          }
++        end
++      )
++    end)
++    |> Enum.sort_by(& &1["module"])
++
++  ratio = fn
++    %{"total" => 0} -> "0.000000"
++    row -> :erlang.float_to_binary(row["informative"] / row["total"], decimals: 6)
++  end
++
++  csv_field = fn
++    value when is_binary(value) ->
++      if String.contains?(value, [",", "\"", "\n"]) do
++        [?\", String.replace(value, "\"", "\"\""), ?\"]
++      else
++        value
++      end
++
++    value ->
++      to_string(value)
++  end
++
++  csv_row = fn fields ->
++    fields
++    |> Enum.map(csv_field)
++    |> Enum.intersperse(",")
++    |> IO.puts()
++  end
++
++  csv_row.([
++    "scope",
++    "module",
++    "functions",
++    "total_arrows",
++    "informative_arrows",
++    "exact_dynamic_arrows",
++    "informative_ratio"
++  ])
++
++  csv_row.([
++    "total",
++    "ALL",
++    totals["functions"],
++    totals["total"],
++    totals["informative"],
++    totals["exact"],
++    ratio.(totals)
++  ])
++
++  Enum.each(by_module, fn row ->
++    csv_row.([
++      "module",
++      row["module"],
++      row["functions"],
++      row["total"],
++      row["informative"],
++      row["exact"],
++      ratio.(row)
++    ])
++  end)
++end
++
++case System.argv() do
++  ["--aggregate", path] ->
++    aggregate.(path)
++
++  [path, "--" | command] when command != [] ->
++    File.rm(path)
++    path |> Path.dirname() |> File.mkdir_p!()
++
++    [executable | args] = command
++
++    executable =
++      if String.contains?(executable, "/"), do: Path.expand(executable), else: executable
++
++    {output, status} =
++      System.cmd(executable, args, env: [{env, path}], stderr_to_stdout: true)
++
++    IO.write(output)
++    aggregate.(path)
++    System.halt(status)
++
++  _ ->
++    usage.()
++end
+diff --git a/lib/elixir/test/elixir/module/types/metrics_test.exs b/lib/elixir/test/elixir/module/types/metrics_test.exs
+new file mode 100644
+index 000000000..7cbfe0fc6
+--- /dev/null
++++ b/lib/elixir/test/elixir/module/types/metrics_test.exs
+@@ -0,0 +1,129 @@
++# SPDX-License-Identifier: Apache-2.0
++# SPDX-FileCopyrightText: 2021 The Elixir Team
++
++Code.require_file("type_helper.exs", __DIR__)
++
++defmodule Module.Types.MetricsTest do
++  use ExUnit.Case, async: false
++
++  import Module.Types.Descr
++
++  alias Module.Types.Metrics
++
++  @env "ELIXIR_TYPE_METRICS_ARROW_RETURN"
++
++  setup do
++    previous = System.get_env(@env)
++    System.delete_env(@env)
++
++    on_exit(fn ->
++      if previous do
++        System.put_env(@env, previous)
++      else
++        System.delete_env(@env)
++      end
++    end)
++
++    :ok
++  end
++
++  test "summarize_arrows distinguishes exact dynamic from gradual dynamic" do
++    assert Metrics.summarize_arrows([
++             {[], dynamic()},
++             {[], dynamic(integer())},
++             {[], integer()}
++           ]) == %{
++             total_arrows: 3,
++             informative_arrows: 2,
++             exact_dynamic_arrows: 1
++           }
++  end
++
++  test "does not write metrics when environment variable is unset" do
++    path = metrics_path("unset")
++    File.rm(path)
++
++    compile_sample_module()
++
++    refute File.exists?(path)
++  end
++
++  test "writes named and anonymous inferred arrow metrics when enabled" do
++    path = metrics_path("enabled")
++    File.rm(path)
++    System.put_env(@env, path)
++
++    module = compile_sample_module()
++    records = read_records(path)
++
++    exact = find_record(records, module, "exact_dynamic")
++    assert exact["kind"] == "named"
++    assert exact["total_arrows"] == 1
++    assert exact["informative_arrows"] == 0
++    assert exact["exact_dynamic_arrows"] == 1
++
++    gradual = find_record(records, module, "gradual_dynamic")
++    assert gradual["total_arrows"] == 1
++    assert gradual["informative_arrows"] == 1
++    assert gradual["exact_dynamic_arrows"] == 0
++
++    grouped = find_record(records, module, "grouped")
++    assert grouped["total_arrows"] == 2
++
++    assert [
++             %{
++               "kind" => "anonymous",
++               "function" => "anonymous",
++               "arity" => 1,
++               "total_arrows" => 1,
++               "informative_arrows" => 1,
++               "exact_dynamic_arrows" => 0
++             }
++           ] =
++             Enum.filter(
++               records,
++               &(&1["kind"] == "anonymous" and &1["module"] == Atom.to_string(module))
++             )
++  end
++
++  defp compile_sample_module do
++    module = Module.concat(__MODULE__, "Sample#{System.unique_integer([:positive])}")
++
++    {{:module, ^module, _binary, _}, []} =
++      Code.eval_quoted(
++        quote do
++          defmodule unquote(module) do
++            def exact_dynamic(value), do: exact_dynamic(value)
++            def gradual_dynamic(value), do: value + 1
++
++            def grouped({:ok, value}), do: value
++            def grouped({:error, reason}), do: reason
++            def grouped(other), do: {:unknown, other}
++
++            def anonymous(value), do: (fn inner -> inner + 1 end).(value)
++          end
++        end,
++        [],
++        file: __ENV__.file
++      )
++
++    module
++  end
++
++  defp find_record(records, module, function) do
++    Enum.find(records, &(&1["module"] == Atom.to_string(module) and &1["function"] == function))
++  end
++
++  defp metrics_path(name) do
++    PathHelpers.tmp_path(
++      "arrow_return_metrics_#{name}_#{System.unique_integer([:positive])}.jsonl"
++    )
++  end
++
++  defp read_records(path) do
++    path
++    |> File.read!()
++    |> String.split("\n", trim: true)
++    |> Enum.map(&JSON.decode!/1)
++  end
++end
