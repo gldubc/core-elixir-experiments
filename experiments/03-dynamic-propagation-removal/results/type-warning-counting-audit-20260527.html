@@ -1,0 +1,496 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EPT Type Warning Count Audit</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #667085;
+      --line: #d7dce5;
+      --panel: #ffffff;
+      --band: #f4f6f8;
+      --accent: #006c67;
+      --accent-2: #8b5e00;
+      --ok: #237a4b;
+      --warn: #9a3412;
+      --code: #101828;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--ink);
+      background: #fafbfc;
+      line-height: 1.45;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: var(--panel);
+    }
+
+    header .inner,
+    main {
+      width: min(1180px, calc(100vw - 32px));
+      margin: 0 auto;
+    }
+
+    header .inner {
+      padding: 28px 0 22px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      line-height: 1.15;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 34px 0 12px;
+      font-size: 20px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 8px 0;
+      max-width: 920px;
+    }
+
+    main {
+      padding: 24px 0 46px;
+    }
+
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin: 18px 0 8px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 12px;
+      min-height: 82px;
+    }
+
+    .metric .label {
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .metric .value {
+      margin-top: 6px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      padding: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: var(--panel);
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #eef2f5;
+      font-weight: 700;
+    }
+
+    td.num,
+    th.num {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: 700;
+    }
+
+    .note {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .barcell {
+      min-width: 140px;
+    }
+
+    .bar {
+      display: inline-grid;
+      grid-template-columns: minmax(0, var(--w)) 1fr;
+      width: 100%;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .bar::before {
+      content: "";
+      display: block;
+      height: 11px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-2));
+      border-radius: 2px;
+      min-width: 2px;
+    }
+
+    .bar.zero::before {
+      background: #c8ced7;
+      min-width: 0;
+    }
+
+    pre {
+      margin: 10px 0 0;
+      padding: 12px;
+      overflow: auto;
+      background: var(--code);
+      color: #e6edf7;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.95em;
+    }
+
+    details {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      margin: 8px 0;
+      padding: 0;
+    }
+
+    summary {
+      cursor: pointer;
+      padding: 10px 12px;
+      font-weight: 700;
+      background: var(--band);
+    }
+
+    details ul {
+      margin: 10px 12px 12px 28px;
+      padding: 0;
+    }
+
+    details li {
+      margin: 5px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      overflow-wrap: anywhere;
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #eef7f6;
+      padding: 12px 14px;
+      margin: 14px 0;
+    }
+
+    .warning {
+      border-left-color: var(--warn);
+      background: #fff4ed;
+    }
+
+    a { color: #005ea8; }
+
+    @media (max-width: 860px) {
+      .summary,
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="inner">
+      <h1>EPT Type Warning Count Audit</h1>
+      <p>Local audit for the Elixir perf runner on branch <code>refine-static-predicate-types</code>, commit <code>095c1649c59651a959c57ed15628ea3aebc388d3</code>.</p>
+      <div class="summary" aria-label="audit summary">
+        <div class="metric"><div class="label">Repositories audited</div><div class="value">15</div></div>
+        <div class="metric"><div class="label">Successful log matches</div><div class="value">15</div></div>
+        <div class="metric"><div class="label">Total type warnings</div><div class="value">94</div></div>
+        <div class="metric"><div class="label">Mismatch count</div><div class="value">0</div></div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section>
+      <h2>Result</h2>
+      <p>The warning counts reported by EPT match the raw formatted compiler log for every compiled repository. The manual audit counted the same <code>type warning found at:</code> blocks and the same type-warning location lines in <code>perf.txt</code>.</p>
+      <p>Operately has been removed from EPT. Its repository root is not a Mix project, and after pointing at <code>app/</code>, dependency compilation fails in <code>:x509</code> before project compilation. That means there is no valid project type-warning measurement for it in this environment.</p>
+      <p class="note">Artifacts: <a href="type-warning-audit-15-20260527.md">Markdown result table</a>, <a href="type-warning-audit-refine-20260527.log">raw compile log</a>.</p>
+    </section>
+
+    <section>
+      <h2>Audit Table</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Repository</th>
+            <th class="num">EPT diagnostics</th>
+            <th class="num">Log markers</th>
+            <th class="num">Type location lines</th>
+            <th class="num">All warning headers</th>
+            <th>Match</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>HexPm</td><td class="num">12</td><td class="num">12</td><td class="num">12</td><td class="num">19</td><td class="ok">yes</td></tr>
+          <tr><td>Phoenix</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="ok">yes</td></tr>
+          <tr><td>PhoenixLiveView</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">1</td><td class="ok">yes</td></tr>
+          <tr><td>Livebook</td><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="num">4</td><td class="ok">yes</td></tr>
+          <tr><td>Credo</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="ok">yes</td></tr>
+          <tr><td>ExDoc</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">6</td><td class="ok">yes</td></tr>
+          <tr><td>Nerves</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">4</td><td class="ok">yes</td></tr>
+          <tr><td>Ecto</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="num">0</td><td class="ok">yes</td></tr>
+          <tr><td>Ash</td><td class="num">33</td><td class="num">33</td><td class="num">33</td><td class="num">68</td><td class="ok">yes</td></tr>
+          <tr><td>Spitfire</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="ok">yes</td></tr>
+          <tr><td>SQL</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="ok">yes</td></tr>
+          <tr><td>OpenApiSpex</td><td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">10</td><td class="ok">yes</td></tr>
+          <tr><td>MixSBOM</td><td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="ok">yes</td></tr>
+          <tr><td>AbsintheFederation</td><td class="num">1</td><td class="num">1</td><td class="num">1</td><td class="num">5</td><td class="ok">yes</td></tr>
+          <tr><td>Blockscout</td><td class="num">37</td><td class="num">37</td><td class="num">37</td><td class="num">163</td><td class="ok">yes</td></tr>
+        </tbody>
+      </table>
+      <p class="note">"All warning headers" is deliberately larger for several projects because ordinary compiler warnings, deprecations, unused require warnings, undefined-reference warnings, and bitstring-size warnings are not type warnings.</p>
+    </section>
+
+    <section>
+      <h2>Warning Distribution</h2>
+      <table>
+        <thead>
+          <tr><th>Repository</th><th class="num">Type warnings</th><th>Relative count</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Blockscout</td><td class="num">37</td><td class="barcell"><span class="bar" style="--w: 100%;">37</span></td></tr>
+          <tr><td>Ash</td><td class="num">33</td><td class="barcell"><span class="bar" style="--w: 89%;">33</span></td></tr>
+          <tr><td>HexPm</td><td class="num">12</td><td class="barcell"><span class="bar" style="--w: 32%;">12</span></td></tr>
+          <tr><td>Livebook</td><td class="num">4</td><td class="barcell"><span class="bar" style="--w: 11%;">4</span></td></tr>
+          <tr><td>MixSBOM</td><td class="num">2</td><td class="barcell"><span class="bar" style="--w: 5%;">2</span></td></tr>
+          <tr><td>OpenApiSpex</td><td class="num">2</td><td class="barcell"><span class="bar" style="--w: 5%;">2</span></td></tr>
+          <tr><td>AbsintheFederation</td><td class="num">1</td><td class="barcell"><span class="bar" style="--w: 3%;">1</span></td></tr>
+          <tr><td>ExDoc</td><td class="num">1</td><td class="barcell"><span class="bar" style="--w: 3%;">1</span></td></tr>
+          <tr><td>SQL</td><td class="num">1</td><td class="barcell"><span class="bar" style="--w: 3%;">1</span></td></tr>
+          <tr><td>Spitfire</td><td class="num">1</td><td class="barcell"><span class="bar" style="--w: 3%;">1</span></td></tr>
+          <tr><td>Credo</td><td class="num">0</td><td class="barcell"><span class="bar zero" style="--w: 0%;">0</span></td></tr>
+          <tr><td>Ecto</td><td class="num">0</td><td class="barcell"><span class="bar zero" style="--w: 0%;">0</span></td></tr>
+          <tr><td>Nerves</td><td class="num">0</td><td class="barcell"><span class="bar zero" style="--w: 0%;">0</span></td></tr>
+          <tr><td>Phoenix</td><td class="num">0</td><td class="barcell"><span class="bar zero" style="--w: 0%;">0</span></td></tr>
+          <tr><td>PhoenixLiveView</td><td class="num">0</td><td class="barcell"><span class="bar zero" style="--w: 0%;">0</span></td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>Counting Method</h2>
+      <div class="callout">
+        <p>EPT counts structured diagnostics, not text. The predicate is:</p>
+        <pre><code>defp type_warning?(%{severity: :warning, details: %{typing_traces: _}}), do: true
+defp type_warning?(_), do: false</code></pre>
+      </div>
+      <p>The counter runs after the measured <code>mix compile --force --profile time</code> finishes. It opens the project through Mix and reads the Elixir compiler diagnostics stored by the compile manifest. For umbrella projects it recursively enters each child app and reads each child's Elixir diagnostics.</p>
+      <pre><code>case Mix.Project.apps_paths() do
+  nil -&gt; Mix.Tasks.Compile.Elixir.diagnostics()
+  apps -&gt;
+    Enum.flat_map(apps, fn {app, path} -&gt;
+      Mix.Project.in_project(app, path, fn _ -&gt; diagnostics_for_project() end)
+    end)
+end</code></pre>
+
+      <h3>Why this catches all type warnings</h3>
+      <p>In this Elixir checkout, every type-checker warning path that needs the special type-warning rendering attaches <code>details: %{typing_traces: traces}</code>. This appears across the type checker modules under <code>Module.Types</code>: <code>apply.ex</code>, <code>expr.ex</code>, <code>of.ex</code>, and <code>pattern.ex</code>.</p>
+      <p>The user-visible marker in the compiler log is produced by the same structured field:</p>
+      <pre><code>format_detail(#{details := #{typing_traces := _}}, Message) -&gt;
+  [Message | "\ntype warning found at:"];</code></pre>
+      <p>Therefore, if a warning prints as a type warning in the log, it had <code>details.typing_traces</code>. Conversely, if a warning lacks that field, the formatter does not print <code>type warning found at:</code>, and EPT does not count it.</p>
+      <p>Grouped diagnostics are also handled. <code>Module.ParallelChecker.emit_diagnostics/3</code> expands each grouped diagnostic into one diagnostic per location before returning it to Mix. The audit counted both the marker blocks and the final location lines, and they matched EPT's structured count for every repo.</p>
+
+      <h3>Why dependencies are excluded</h3>
+      <p><code>perf.py</code> compiles dependencies in a separate setup step with <code>mix deps.compile --force</code>. The measured project compile then runs from the project root with <code>mix compile --force --no-deps-check</code>. The type-warning counter is invoked only after that project compile and reads diagnostics from that project's compile manifests. Dependency warning text may appear during setup, but it is not included in the counted project section.</p>
+
+      <h3>Failure handling</h3>
+      <p>If compilation times out or fails before diagnostics are reliable, EPT reports a status such as <code>compile failed</code>, <code>timeout</code>, or <code>not compiled</code> rather than inventing a count. If serious-run mode produces inconsistent warning counts between measured runs, the table reports the inconsistent list instead of a single count.</p>
+    </section>
+
+    <section>
+      <h2>Commands</h2>
+      <pre><code>./perf.py --elixir-root /Users/gldubc/Code/research/elixir/main \
+  --tc-table --type-warnings --compile-timeout 120 --deps-compile-timeout 600 \
+  -o results/type-warning-audit-15-20260527.md</code></pre>
+      <p>The first full command also included Operately. It failed dependency setup before project compilation. After that, Operately was removed from the EPT repository list and the successful 15-repository run above was regenerated for the raw-log audit.</p>
+    </section>
+
+    <section>
+      <h2>Type Warning Locations</h2>
+      <p>The following locations are the type-warning stack lines read from the raw log. Repositories not listed here had zero type-warning locations.</p>
+
+      <details><summary>HexPm: 12 locations</summary><ul>
+        <li>lib/hexpm_web/templates/dashboard/organization/components/billing_subscription.ex:198: HexpmWeb.Dashboard.Organization.Components.BillingSubscription."billing_subscription (overridable 1)"/1</li>
+        <li>lib/hexpm_web/controllers/package_controller.ex:216: HexpmWeb.PackageController.access_package/3</li>
+        <li>lib/hexpm_web/components/package_layout.ex:278: HexpmWeb.Components.PackageLayout."package_layout (overridable 1)"/1</li>
+        <li>lib/hexpm/accounts/auth.ex:123: Hexpm.Accounts.Auth.validate_entity_auth/1</li>
+        <li>lib/hexpm/repository/download.ex:6: HexpmWeb.Stale.Hexpm.Repository.Download.last_modified/1</li>
+        <li>lib/hexpm/accounts/key_permission.ex:8: HexpmWeb.Stale.Hexpm.Accounts.KeyPermission.last_modified/1</li>
+        <li>lib/hexpm/repository/release_metadata.ex:6: HexpmWeb.Stale.Hexpm.Repository.ReleaseMetadata.last_modified/1</li>
+        <li>lib/hexpm/accounts/user_handles.ex:6: HexpmWeb.Stale.Hexpm.Accounts.UserHandles.last_modified/1</li>
+        <li>lib/hexpm/repository/package_metadata.ex:6: HexpmWeb.Stale.Hexpm.Repository.PackageMetadata.last_modified/1</li>
+        <li>lib/hexpm/repository/release_download.ex:7: HexpmWeb.Stale.Hexpm.Repository.ReleaseDownload.last_modified/1</li>
+        <li>lib/hexpm/repository/release_retirement.ex:6: HexpmWeb.Stale.Hexpm.Repository.ReleaseRetirement.last_modified/1</li>
+        <li>lib/hexpm/repository/package_download.ex:7: HexpmWeb.Stale.Hexpm.Repository.PackageDownload.last_modified/1</li>
+      </ul></details>
+
+      <details><summary>Livebook: 4 locations</summary><ul>
+        <li>lib/livebook_web/controllers/auth_html/index.html.heex:15: LivebookWeb.AuthHTML.index/1</li>
+        <li>lib/livebook_web/controllers/error_html.ex:63: LivebookWeb.ErrorHTML."error_page (overridable 1)"/1</li>
+        <li>lib/livebook_web/components/layouts/root.html.heex:17: LivebookWeb.Layouts.root/1</li>
+        <li>lib/livebook_web/live/session_live/k8s_runtime_component.ex:793: LivebookWeb.SessionLive.K8sRuntimeComponent.kubectl_warning/0</li>
+      </ul></details>
+
+      <details><summary>ExDoc: 1 location</summary><ul>
+        <li>lib/ex_doc/retriever.ex:118:9: ExDoc.Retriever.docs_chunk/1</li>
+      </ul></details>
+
+      <details><summary>Ash: 33 locations</summary><ul>
+        <li>lib/ash/actions/destroy/bulk.ex:64: Ash.Actions.Destroy.Bulk.run/6</li>
+        <li>lib/ash/actions/destroy/bulk.ex:476: Ash.Actions.Destroy.Bulk.run/6</li>
+        <li>lib/ash/actions/read/read.ex:1195: Ash.Actions.Read.data_layer_query/5</li>
+        <li>lib/ash/actions/update/bulk.ex:2266: Ash.Actions.Update.Bulk.map_batches/5</li>
+        <li>lib/ash/actions/destroy/bulk.ex:1887: Ash.Actions.Destroy.Bulk.map_batches/5</li>
+        <li>lib/ash/policy/authorizer/authorizer.ex:1444: Ash.Policy.Authorizer.strict_filters/2</li>
+        <li>lib/ash/actions/destroy/bulk.ex:479:9: Ash.Actions.Destroy.Bulk.run/6</li>
+        <li>lib/ash/actions/read/read.ex:2806: Ash.Actions.Read.strip_load?/1</li>
+        <li>lib/ash/policy/authorizer/authorizer.ex:1484: Ash.Policy.Authorizer.strict_filters/2</li>
+        <li>lib/ash/actions/read/read.ex:2812: Ash.Actions.Read.prefer_existing_loads?/1</li>
+        <li>lib/ash/data_layer/ets/ets.ex:2243:39: Ash.DataLayer.Ets.log_destroy_query/2</li>
+        <li>lib/ash/data_layer/ets/ets.ex:2279:39: Ash.DataLayer.Ets.log_update_query/3</li>
+        <li>lib/ash/filter/filter.ex:2729:7: Ash.Filter.do_list_refs/5</li>
+        <li>lib/ash/actions/read/read.ex:3779: Ash.Actions.Read.do_add_field_level_auth/3</li>
+        <li>lib/ash/changeset/changeset.ex:4043:13: Ash.Changeset.add_atomic_validations/3</li>
+        <li>lib/ash/changeset/changeset.ex:172: Inspect.Ash.Changeset.inspect/2</li>
+        <li>lib/ash/filter/runtime.ex:414: Ash.Filter.Runtime.resolve_expr/5</li>
+        <li>lib/ash/filter/runtime.ex:438:23: Ash.Filter.Runtime.resolve_expr/5</li>
+        <li>lib/ash/filter/runtime.ex:439: Ash.Filter.Runtime.resolve_expr/5</li>
+        <li>lib/ash/changeset/changeset.ex:2053: Ash.Changeset.for_create/4</li>
+        <li>lib/ash/query/query.ex:2549: Ash.Query.validate_calculation_arguments/3</li>
+        <li>lib/ash/filter/runtime.ex:939: Ash.Filter.Runtime.resolve_ref/5</li>
+        <li>lib/ash/actions/create/bulk.ex:921: Ash.Actions.Create.Bulk.map_batches/5</li>
+        <li>lib/ash/changeset/changeset.ex:2261: Ash.Changeset.for_destroy/4</li>
+        <li>lib/ash/subject.ex:205:47: Ash.Subject.get_argument/2</li>
+        <li>lib/ash/actions/read/calculations.ex:241: Ash.Actions.Read.Calculations.calculate/3</li>
+        <li>lib/ash/actions/read/calculations.ex:327:18: Ash.Actions.Read.Calculations.replace_refs/2</li>
+        <li>lib/ash/type/union.ex:850:25: Ash.Type.Union.tags_equal?/2</li>
+        <li>lib/ash/type/union.ex:1088:39: Ash.Type.Union.prepare_change_array/3</li>
+        <li>lib/ash/expr/expr.ex:1260: Ash.Expr.determine_types/4</li>
+        <li>lib/ash/query/query.ex:372: Inspect.Ash.Query.arguments/2</li>
+        <li>lib/ash/sort/sort.ex:469: Ash.Sort.related_field/6</li>
+        <li>lib/ash/error/invalid/no_matching_bulk_strategy.ex:33: Ash.Error.Invalid.NoMatchingBulkStrategy."message (overridable 1)"/1</li>
+      </ul></details>
+
+      <details><summary>Spitfire: 1 location</summary><ul>
+        <li>lib/spitfire/env.ex:220: Spitfire.Env.expand/3</li>
+      </ul></details>
+
+      <details><summary>SQL: 1 location</summary><ul>
+        <li>lib/bnf.ex:11:18: SQL.BNF.parse/0</li>
+      </ul></details>
+
+      <details><summary>OpenApiSpex: 2 locations</summary><ul>
+        <li>lib/open_api_spex/controller.ex:184: OpenApiSpex.Controller.__api_operation__/2</li>
+        <li>lib/mix/tasks/openapi.spec.yaml.ex:57: Mix.Tasks.Openapi.Spec.Yaml.encoder/0</li>
+      </ul></details>
+
+      <details><summary>MixSBOM: 2 locations</summary><ul>
+        <li>lib/sbom/fetcher/mix_runtime.ex:143: SBoM.Fetcher.MixRuntime.resolve_dep/3</li>
+        <li>lib/sbom/cyclonedx/common/enum_helpers.ex:155: SBoM.CycloneDX.Common.EnumHelpers.classification_to_string_xml/1</li>
+      </ul></details>
+
+      <details><summary>AbsintheFederation: 1 location</summary><ul>
+        <li>lib/absinthe/federation/schema.ex:73:24: Absinthe.Federation.Schema.remove_federated_types_pipeline/1</li>
+      </ul></details>
+
+      <details><summary>Blockscout: 37 locations</summary><ul>
+        <li>(ethereum_jsonrpc 11.0.3) lib/ethereum_jsonrpc/decode_error.ex:58:20: EthereumJSONRPC.DecodeError.message/1</li>
+        <li>(explorer 11.0.3) lib/explorer/account/notifier/notify.ex:157:35: Explorer.Account.Notifier.Notify.watched?/3</li>
+        <li>(explorer 11.0.3) lib/explorer/account/notifier/notify.ex:158:35: Explorer.Account.Notifier.Notify.watched?/3</li>
+        <li>(explorer 11.0.3) lib/release_tasks.ex:88:14: Explorer.ReleaseTasks.run_migrations_for/1</li>
+        <li>(explorer 11.0.3) lib/release_tasks.ex:111:17: Explorer.ReleaseTasks.priv_path_for/2</li>
+        <li>(explorer 11.0.3) lib/explorer/chain/fhe/fhe_contract_checker.ex:32: Explorer.Chain.FheContractChecker.check_and_save_fhe_status/2</li>
+        <li>(explorer 11.0.3) lib/explorer/third_party_integrations/universal_proxy.ex:99: Explorer.ThirdPartyIntegrations.UniversalProxy.api_request_inner/1</li>
+        <li>(explorer 11.0.3) lib/explorer/smart_contract/stylus/publisher_worker.ex:15: Explorer.SmartContract.Stylus.PublisherWorker.__after_compile__/2</li>
+        <li>(explorer 11.0.3) lib/explorer/smart_contract/solidity/publisher_worker.ex:9: Explorer.SmartContract.Solidity.PublisherWorker.__after_compile__/2</li>
+        <li>(explorer 11.0.3) lib/explorer/smart_contract/vyper/publisher_worker.ex:9: Explorer.SmartContract.Vyper.PublisherWorker.__after_compile__/2</li>
+        <li>(explorer 11.0.3) lib/explorer/chain/transaction.ex:2173:31: Explorer.Chain.Transaction.operator_fee/1</li>
+        <li>(explorer 11.0.3) lib/explorer/chain/import/runner/internal_transactions.ex:718: Explorer.Chain.Import.Runner.InternalTransactions.update_transactions_inner_wrapper/10</li>
+        <li>(explorer 11.0.3) lib/explorer/arbitrum/claim_rollup_message.ex:153:11: Explorer.Arbitrum.ClaimRollupMessage.claim_message/1</li>
+        <li>(indexer 11.0.3) lib/indexer/fetcher/token_instance/realtime.ex:81:18: Indexer.Fetcher.TokenInstance.Realtime.async_fetch/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/transaction_log/_logs.html.eex:48: BlockScoutWeb.TransactionLogView."_logs.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/transaction_log/_logs.html.eex:80:2: BlockScoutWeb.TransactionLogView."_logs.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/tokens/_tile.html.eex:12: BlockScoutWeb.TokensView."_tile.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/address_contract/index.html.eex:43: BlockScoutWeb.AddressContractView."index.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/address_contract_verification_via_flattened_code/new.html.eex:4: BlockScoutWeb.AddressContractVerificationViaFlattenedCodeView."new.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/address_contract_verification_via_standard_json_input/new.html.eex:4: BlockScoutWeb.AddressContractVerificationViaStandardJsonInputView."new.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/address_contract/index.html.eex:225: BlockScoutWeb.AddressContractView."index.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/templates/address_contract/index.html.eex:243: BlockScoutWeb.AddressContractView."index.html"/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/celo_view.ex:241:14: BlockScoutWeb.API.V2.CeloView.extend_address_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/arbitrum_view.ex:612:40: BlockScoutWeb.API.V2.ArbitrumView.extend_if_message/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/celo_view.ex:290:13: BlockScoutWeb.API.V2.CeloView.extend_transaction_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/arbitrum_view.ex:688:27: BlockScoutWeb.API.V2.ArbitrumView.extend_with_transaction_info/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/arbitrum_view.ex:725:39: BlockScoutWeb.API.V2.ArbitrumView.extend_with_block_info/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/zksync_view.ex:94:5: BlockScoutWeb.API.V2.ZkSyncView.extend_transaction_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/arbitrum_view.ex:251:10: BlockScoutWeb.API.V2.ArbitrumView.extend_transaction_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/optimism_view.ex:403:26: BlockScoutWeb.API.V2.OptimismView.extend_block_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/zksync_view.ex:117:5: BlockScoutWeb.API.V2.ZkSyncView.extend_block_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/arbitrum_view.ex:281:10: BlockScoutWeb.API.V2.ArbitrumView.extend_block_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/nft_helper.ex:43: BlockScoutWeb.NFTHelper.external_url/1</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/ethereum_view.ex:6:14: BlockScoutWeb.API.V2.EthereumView.extend_transaction_json_response/2</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/suave_view.ex:20:19: BlockScoutWeb.API.V2.SuaveView.extend_transaction_json_response/5</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/views/api/v2/ethereum_view.ex:24:25: BlockScoutWeb.API.V2.EthereumView.extend_block_json_response/3</li>
+        <li>(block_scout_web 11.0.3) lib/block_scout_web/chain.ex:859: BlockScoutWeb.Chain.validate_block_number/2</li>
+      </ul></details>
+    </section>
+  </main>
+</body>
+</html>

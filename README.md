@@ -10,6 +10,8 @@ The repository is organized by numbered experiments:
   results.
 - `experiments/02-arrow-return-informativeness`: inferred-arrow return
   informativeness instrumentation and selected open-source project results.
+- `experiments/03-dynamic-propagation-removal`: warning-count comparison between
+  the full checker and a variant that removes dynamic return propagation.
 
 Each experiment directory contains its own README with the measurement, the
 paper result, the code versions used, and reproduction commands. The repository
@@ -34,6 +36,9 @@ make reproduce-smoke
 
 # Validate the archived arrow-return informativeness table.
 make reproduce-experiment-02-smoke
+
+# Validate the archived dynamic-propagation removal warning table.
+make reproduce-experiment-03-smoke
 
 # Reproduce the full guard-exactness run. This is intentionally expensive.
 make reproduce-full

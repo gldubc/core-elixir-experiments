@@ -1,0 +1,72 @@
+diff --git a/lib/elixir/lib/module/types/apply.ex b/lib/elixir/lib/module/types/apply.ex
+index 870d79770..8b8987263 100644
+--- a/lib/elixir/lib/module/types/apply.ex
++++ b/lib/elixir/lib/module/types/apply.ex
+@@ -1727,15 +1727,9 @@ def local_capture(fun, arity, meta, stack, context) do
+   @doc """
+   Computes the return type of an application.
+   """
+-  def return(type, args_types, stack) do
+-    # An argument being gradual does not imply the return type
+-    # is gradual in static mode. However, we do wrap in dynamic
+-    # in :dynamic / :gradual mode to avoid false positives.
+-    cond do
+-      stack.mode == :static -> type
+-      Enum.any?(args_types, &gradual?/1) -> dynamic(type)
+-      true -> type
+-    end
++  def return(type, _args_types, _stack) do
++    # An argument being gradual does not imply the return type is gradual.
++    type
+   end
+
+   ## Map helpers
+diff --git a/lib/elixir/test/elixir/module/types/expr_test.exs b/lib/elixir/test/elixir/module/types/expr_test.exs
+index 97e199f1d..0373e8549 100644
+--- a/lib/elixir/test/elixir/module/types/expr_test.exs
++++ b/lib/elixir/test/elixir/module/types/expr_test.exs
+@@ -1562,9 +1562,9 @@ test "preserves static components across gradual self-intersections" do
+     end
+
+     test "in dynamic mode" do
+-      assert typedyn!([x = 123, y = 456.0], x < y) == dynamic(boolean())
+-      assert typedyn!([x = 123, y = 456.0], x == y) == dynamic(boolean())
+-      assert typedyn!([x = 123, y = 456], x == y) == dynamic(boolean())
++      assert typedyn!([x = 123, y = 456.0], x < y) == boolean()
++      assert typedyn!([x = 123, y = 456.0], x == y) == boolean()
++      assert typedyn!([x = 123, y = 456], x == y) == boolean()
+     end
+
+     test "using literals" do
+@@ -1792,6 +1792,14 @@ test "Integer.to_string/1" do
+                """
+     end
+
++    test "strong calls with dynamic inputs in dynamic mode do not wrap their returns" do
++      assert typedyn!([x], x) == dynamic()
++      assert typedyn!([x], Integer.to_string(x)) == binary()
++      assert typedyn!([x], String.to_atom(x)) == atom()
++      assert typedyn!([x], length(x)) == integer()
++      assert typedyn!([x, y], rem(x, y)) == integer()
++    end
++
+     test "Bitwise.bnot/1" do
+       assert typecheck!([x = 123], Bitwise.bnot(x)) == integer()
+
+diff --git a/lib/elixir/test/elixir/module/types/infer_test.exs b/lib/elixir/test/elixir/module/types/infer_test.exs
+index 20929ab66..1765a33bd 100644
+--- a/lib/elixir/test/elixir/module/types/infer_test.exs
++++ b/lib/elixir/test/elixir/module/types/infer_test.exs
+@@ -141,10 +141,10 @@ def fun_nested(%{x: x} = data) do
+     number = union(integer(), float())
+
+     assert types[{:fun, 1}] ==
+-             {:infer, nil, [{[open_map(foo: number, bar: number)], dynamic(number)}]}
++             {:infer, nil, [{[open_map(foo: number, bar: number)], number}]}
+
+     assert types[{:fun_nested, 1}] ==
+-             {:infer, nil, [{[open_map(x: open_map(foo: number, bar: number))], dynamic(number)}]}
++             {:infer, nil, [{[open_map(x: open_map(foo: number, bar: number))], number}]}
+   end
+
+   test "from Elixir built-in", config do

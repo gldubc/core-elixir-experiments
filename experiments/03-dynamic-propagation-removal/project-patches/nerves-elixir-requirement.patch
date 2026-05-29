@@ -1,0 +1,13 @@
+diff --git a/mix.exs b/mix.exs
+index 7c23f9d..fa85de8 100644
+--- a/mix.exs
++++ b/mix.exs
+@@ -14,7 +14,7 @@ defmodule Nerves.MixProject do
+     [
+       app: :nerves,
+       version: @version,
+-      elixir: "~> 1.15.1 or ~> 1.16.0 or ~> 1.17.0 or ~> 1.18.0 or ~> 1.19.0",
++      elixir: "~> 1.15.1 or ~> 1.16.0 or ~> 1.17.0 or ~> 1.18.0 or ~> 1.19.0 or >= 1.20.0-dev",
+       archives: [nerves_bootstrap: "~> 1.15.1 or ~> 1.16"],
+       elixirc_paths: elixirc_paths(Mix.env()),
+       deps: deps(),

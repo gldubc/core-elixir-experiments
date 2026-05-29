@@ -1,0 +1,13 @@
+diff --git a/mix.exs b/mix.exs
+index 407a024..704bb56 100644
+--- a/mix.exs
++++ b/mix.exs
+@@ -10,7 +10,7 @@ defmodule Absinthe.Federation.MixProject do
+       version: @version,
+       elixir: "~> 1.12",
+       elixirc_paths: elixirc_paths(Mix.env()),
+-      elixirc_options: [warnings_as_errors: true],
++      elixirc_options: [warnings_as_errors: false],
+       build_embedded: Mix.env() == :prod,
+       start_permanent: Mix.env() == :prod,
+       package: package(),

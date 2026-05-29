@@ -1,0 +1,1980 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Small Project Type Warning Audit</title>
+<style>
+:root {
+  color-scheme: light;
+  --ink: #202124;
+  --muted: #5f6368;
+  --line: #d8dee4;
+  --paper: #f7f8f5;
+  --panel: #ffffff;
+  --code: #111827;
+  --fp: #176b5b;
+  --fp-bg: #e5f4ee;
+  --ctx: #8a5a00;
+  --ctx-bg: #fff3cf;
+  --true: #51606b;
+  --true-bg: #edf1f4;
+  --risk: #a33828;
+  --risk-bg: #fde8e2;
+  --accent: #3867d6;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--ink); background: var(--paper); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+header.page { padding: 28px 32px 18px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+h1 { margin: 0 0 8px; font-size: 28px; line-height: 1.15; letter-spacing: 0; }
+.subtitle { margin: 0; color: var(--muted); max-width: 1180px; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; align-items: center; }
+.toolbar button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 6px; padding: 7px 10px; cursor: pointer; font: inherit; }
+.toolbar button.active { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+main { max-width: 1320px; margin: 0 auto; padding: 24px 24px 60px; }
+.overview { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; align-items: start; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 18px; }
+.metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.metric { border: 1px solid var(--line); border-radius: 8px; padding: 14px; background: #fff; }
+.metric-value { font-size: 28px; font-weight: 700; line-height: 1; }
+.metric-label { color: var(--muted); margin-top: 6px; }
+.metric.fp { background: var(--fp-bg); border-color: #b7d9ce; }
+.metric.ctx { background: var(--ctx-bg); border-color: #ead59b; }
+.metric.true { background: var(--true-bg); border-color: #cbd3d8; }
+.metric.risk { background: var(--risk-bg); border-color: #f0baad; }
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; border-bottom: 1px solid var(--line); padding: 8px 6px; vertical-align: middle; }
+th { color: var(--muted); font-weight: 600; }
+.bar { display: block; height: 8px; background: #eef0ea; border-radius: 999px; overflow: hidden; min-width: 80px; }
+.bar span { display: block; height: 100%; background: var(--accent); }
+.findings-note { margin: 14px 0 0; color: var(--muted); }
+.project { margin-top: 26px; }
+.project h2 { font-size: 20px; margin: 0 0 12px; }
+.warning-card { background: var(--panel); border: 1px solid var(--line); border-left-width: 6px; border-radius: 8px; padding: 16px; margin: 14px 0; }
+.warning-card.fp { border-left-color: var(--fp); }
+.warning-card.ctx { border-left-color: var(--ctx); }
+.warning-card.true { border-left-color: var(--true); }
+.warning-card.risk { border-left-color: var(--risk); }
+.warning-card header { display: flex; gap: 16px; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
+.eyebrow { color: var(--muted); font-size: 13px; text-transform: uppercase; letter-spacing: .04em; }
+h3 { margin: 4px 0; font-size: 18px; line-height: 1.25; }
+.loc { margin: 0; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; overflow-wrap: anywhere; }
+.badges { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 190px; }
+.badge { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+.badge.fp { color: var(--fp); background: var(--fp-bg); }
+.badge.ctx { color: var(--ctx); background: var(--ctx-bg); }
+.badge.true { color: var(--true); background: var(--true-bg); }
+.badge.risk { color: var(--risk); background: var(--risk-bg); }
+.badge.confidence { color: #374151; background: #f1f3f0; }
+.analysis-grid { display: grid; grid-template-columns: minmax(280px, .9fr) minmax(420px, 1.1fr); gap: 18px; }
+h4 { margin: 13px 0 5px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+p { margin: 0 0 8px; }
+pre { margin: 0; overflow-x: auto; white-space: pre; }
+.code, .raw { background: #101418; color: #e7edf2; border-radius: 6px; padding: 12px; font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+.raw { margin-top: 10px; max-height: 520px; }
+.line { display: block; min-height: 1.45em; }
+.line.hit { background: rgba(255, 214, 102, .18); color: #fff7d6; }
+.ln { display: inline-block; width: 4.5ch; margin-right: 1ch; color: #8ca3b5; text-align: right; user-select: none; }
+details { margin-top: 12px; }
+summary { cursor: pointer; color: var(--accent); font-weight: 650; }
+.hidden { display: none; }
+.footer { color: var(--muted); margin-top: 26px; font-size: 13px; }
+@media (max-width: 980px) {
+  header.page { position: static; padding: 22px 18px; }
+  main { padding: 18px; }
+  .overview { grid-template-columns: 1fr; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .analysis-grid { grid-template-columns: 1fr; }
+  .warning-card header { display: block; }
+  .badges { justify-content: flex-start; margin-top: 10px; }
+}
+</style>
+</head>
+<body>
+<header class="page">
+  <h1>Small Project Type Warning Audit</h1>
+  <p class="subtitle">Detailed review of the 27 no-dynamic warnings in Livebook, Credo, PhoenixLiveView, MixSBOM, OpenApiSpex, ExDoc, Spitfire, and AbsintheFederation. The audit compares against Refine and classifies whether each warning is likely a false positive.</p>
+  <nav class="toolbar" aria-label="Warning filters">
+    <button class="active" data-filter="all">All warnings</button>
+    <button data-filter="new">New vs Refine</button>
+    <button data-filter="likely-fp">Likely false positives</button>
+    <button data-filter="possible-real">Possible real issues</button>
+    <button data-filter="context-true">Context-specific</button>
+    <button data-filter="benign-true">Benign true positives</button>
+  </nav>
+</header>
+<main>
+  <section class="overview">
+    <div class="panel">
+      <h2>Conclusion</h2>
+      <p><strong>16 warnings are new relative to Refine.</strong> Of those, <strong>15</strong> look like false positives introduced by the no-dynamic behavior, mostly integer arithmetic precision loss and Plug.Conn struct-field precision loss. <strong>1</strong> new warning deserves real follow-up: <a href="#OpenApiSpex-1">OpenApiSpex validate_body_schema/4</a> can locally pass nil to Map.get/2.</p>
+      <p class="findings-note">I classify “false positive” as “no real runtime fault under the source-level invariants visible in the project,” not merely “the code currently works in this compile environment.”</p>
+      <div class="metrics"><section class="metric fp"><div class="metric-value">16</div><div class="metric-label">Likely false positive</div></section><section class="metric ctx"><div class="metric-value">6</div><div class="metric-label">Context-specific true positive</div></section><section class="metric true"><div class="metric-value">4</div><div class="metric-label">Benign true positive</div></section><section class="metric risk"><div class="metric-value">1</div><div class="metric-label">Possible real issue</div></section></div>
+    </div>
+    <div class="panel">
+      <h2>Project Breakdown</h2>
+      <table>
+        <thead><tr><th>Project</th><th>Total</th><th>New</th><th>Likely FP</th><th>Scale</th></tr></thead>
+        <tbody><tr><td><a href="#PhoenixLiveView">PhoenixLiveView</a></td><td>1</td><td>1</td><td>1</td><td><span class="bar"><span style="width:14%"></span></span></td></tr><tr><td><a href="#Livebook">Livebook</a></td><td>6</td><td>2</td><td>2</td><td><span class="bar"><span style="width:85%"></span></span></td></tr><tr><td><a href="#Credo">Credo</a></td><td>6</td><td>6</td><td>6</td><td><span class="bar"><span style="width:85%"></span></span></td></tr><tr><td><a href="#ExDoc">ExDoc</a></td><td>2</td><td>1</td><td>1</td><td><span class="bar"><span style="width:28%"></span></span></td></tr><tr><td><a href="#Spitfire">Spitfire</a></td><td>2</td><td>1</td><td>1</td><td><span class="bar"><span style="width:28%"></span></span></td></tr><tr><td><a href="#OpenApiSpex">OpenApiSpex</a></td><td>7</td><td>5</td><td>4</td><td><span class="bar"><span style="width:100%"></span></span></td></tr><tr><td><a href="#MixSBOM">MixSBOM</a></td><td>2</td><td>0</td><td>0</td><td><span class="bar"><span style="width:28%"></span></span></td></tr><tr><td><a href="#AbsintheFederation">AbsintheFederation</a></td><td>1</td><td>0</td><td>1</td><td><span class="bar"><span style="width:14%"></span></span></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+  <section class="panel" style="margin-top:18px">
+    <h2>Method</h2>
+    <p>I used <code>results/type-warning-no-dynamic-cached-deps-20260527.warnings.json</code> as the no-dynamic source of truth, compared locations against <code>results/type-warning-refine-20260527.warnings.json</code>, and read the referenced project source files around every warning. Raw compiler warnings and exact failed code are preserved below.</p>
+  </section>
+  <section class="project" id="PhoenixLiveView"><h2>PhoenixLiveView</h2>
+<article class="warning-card fp" id="PhoenixLiveView-1" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">PhoenixLiveView warning 1 · New vs Refine</div>
+      <h3>incompatible types given to Kernel.binary_part/3:</h3>
+      <p class="loc">└─ lib/phoenix_live_view/html_formatter.ex:613:10: Phoenix.LiveView.HTMLFormatter.line_byte_offset/3</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The offset is computed from newline match tuples returned by :binary.matches/2, whose positions and lengths are integers.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The checker widens line_before + line_size and byte_size(source) - line_offset to float() or integer(), then binary_part/3 rejects the widened type. Nothing in this code introduces floats; this is arithmetic precision loss after the no-dynamic return change.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as a type-checker false positive. A local cast/guard would only document an invariant already guaranteed by :binary.matches/2.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">605</span>    binary_part(source, offset_start, offset_end - offset_start)</span>
+<span class="line "><span class="ln">606</span>  end</span>
+<span class="line "><span class="ln">607</span></span>
+<span class="line "><span class="ln">608</span>  defp line_byte_offset(source, {line_before, line_size}, column) do</span>
+<span class="line "><span class="ln">609</span>    line_offset = line_before + line_size</span>
+<span class="line "><span class="ln">610</span></span>
+<span class="line "><span class="ln">611</span>    line_extra =</span>
+<span class="line "><span class="ln">612</span>      source</span>
+<span class="line hit"><span class="ln">613</span>      |&gt; binary_part(line_offset, byte_size(source) - line_offset)</span>
+<span class="line "><span class="ln">614</span>      |&gt; String.slice(0, column - 1)</span>
+<span class="line "><span class="ln">615</span>      |&gt; byte_size()</span>
+<span class="line "><span class="ln">616</span></span>
+<span class="line "><span class="ln">617</span>    line_offset + line_extra</span>
+<span class="line "><span class="ln">618</span>  end</span>
+<span class="line "><span class="ln">619</span></span>
+<span class="line "><span class="ln">620</span>  defp maybe_format_tag(</span>
+<span class="line "><span class="ln">621</span>         {:block, :tag, name, attrs, [{:text, content, _meta}] = children, meta, close_meta},</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to Kernel.binary_part/3:
+
+         binary_part(source, line_offset, byte_size(source) - line_offset)
+
+     given types:
+
+         binary(), -float()- or integer(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer(), integer()
+
+     where &quot;line_offset&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/phoenix_live_view/html_formatter.ex:609:17
+         line_offset = line_before + line_size
+
+     where &quot;source&quot; was given the types:
+
+         # type: dynamic()
+         # from: lib/phoenix_live_view/html_formatter.ex:608:25
+         source
+
+         # type: binary()
+         # from: lib/phoenix_live_view/html_formatter.ex:613:10
+         binary_part(source, line_offset, byte_size(source) - line_offset)
+
+     type warning found at:
+     │
+ 613 │       |&gt; binary_part(line_offset, byte_size(source) - line_offset)
+     │          ~
+     │
+     └─ lib/phoenix_live_view/html_formatter.ex:613:10: Phoenix.LiveView.HTMLFormatter.line_byte_offset/3</pre>
+  </details>
+</article></section><section class="project" id="Livebook"><h2>Livebook</h2>
+<article class="warning-card ctx" id="Livebook-1" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 1 · Already on Refine</div>
+      <h3>the following clause cannot match because the previous clauses already matched all possible values:</h3>
+      <p class="loc">└─ lib/livebook_web/live/session_live/k8s_runtime_component.ex:793: LivebookWeb.SessionLive.K8sRuntimeComponent.kubectl_warning/0</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Livebook.Config.app?/0 is a compile-time constant for the current target, and this perf build target is not :app.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>app?/0 returns @app?, defined as Mix.target() == :app. For this compile, @app? is false, so the desktop-app branch is unreachable in this artifact. The same source is intentionally compiled for another target where the branch matters.</p>
+      <h4>Recommendation</h4>
+      <p>Do not treat as a no-dynamic regression. This was already present on Refine and is target-dependent code, not a runtime bug.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">785</span>      pod_template: socket.assigns.pod_template.template</span>
+<span class="line "><span class="ln">786</span>    }</span>
+<span class="line "><span class="ln">787</span>  end</span>
+<span class="line "><span class="ln">788</span></span>
+<span class="line "><span class="ln">789</span>  defp kubectl_warning() do</span>
+<span class="line "><span class="ln">790</span>    if System.find_executable(&quot;kubectl&quot;) == nil do</span>
+<span class="line "><span class="ln">791</span>      warning = &quot;Could not find kubectl in PATH. Make sure to install it and add it to PATH.&quot;</span>
+<span class="line "><span class="ln">792</span></span>
+<span class="line hit"><span class="ln">793</span>      if Livebook.Config.app?() do</span>
+<span class="line "><span class="ln">794</span>        windows? = match?({:win32, _}, :os.type())</span>
+<span class="line "><span class="ln">795</span></span>
+<span class="line "><span class="ln">796</span>        {path, command} =</span>
+<span class="line "><span class="ln">797</span>          if windows? do</span>
+<span class="line "><span class="ln">798</span>            path = &quot;#{System.get_env(&quot;USERPROFILE&quot;, &quot;%USERPROFILE%&quot;)}\\.livebookdesktop.bat&quot;</span>
+<span class="line "><span class="ln">799</span>            command = ~s|set &quot;PATH=C:\\path\\to\\dir\\;%PATH%&quot;|</span>
+<span class="line "><span class="ln">800</span>            {path, command}</span>
+<span class="line "><span class="ln">801</span>          else</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the following clause cannot match because the previous clauses already matched all possible values:
+
+         _ -&gt;
+
+     it attempts to match on the result of:
+
+         Livebook.Config.app?()
+
+     which has the already matched type:
+
+         dynamic(false)
+
+     type warning found at:
+     │
+ 793 │       if Livebook.Config.app?() do
+     │       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/livebook_web/live/session_live/k8s_runtime_component.ex:793: LivebookWeb.SessionLive.K8sRuntimeComponent.kubectl_warning/0</pre>
+  </details>
+</article>
+<article class="warning-card ctx" id="Livebook-2" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 2 · Already on Refine</div>
+      <h3>the following conditional expression:</h3>
+      <p class="loc">└─ lib/livebook_web/components/layouts/root.html.heex:17: LivebookWeb.Layouts.root/1</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>dev?/0 is compiled as true because the perf run compiles Livebook in Mix.env() == :dev.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>LivebookWeb.Layouts.dev?/0 is defined with unquote(Mix.env() == :dev). The production asset branch is unreachable in this dev build, but reachable in a production build.</p>
+      <h4>Recommendation</h4>
+      <p>Keep as an environment-specific warning. It predates no-dynamic and does not indicate a source bug.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">9</span>    &lt;link rel=&quot;alternate icon&quot; type=&quot;image/png&quot; href={~p&quot;/favicons/favicon.png&quot;} /&gt;</span>
+<span class="line "><span class="ln">10</span>    &lt;.live_title&gt;</span>
+<span class="line "><span class="ln">11</span>      {assigns[:page_title] || &quot;Livebook&quot;}</span>
+<span class="line "><span class="ln">12</span>    &lt;/.live_title&gt;</span>
+<span class="line "><span class="ln">13</span>    &lt;script&gt;</span>
+<span class="line "><span class="ln">14</span>      window.LIVEBOOK_BASE_URL_PATH = &quot;&lt;%= LivebookWeb.VerifiedRoutes.base_url_path() %&gt;&quot;;</span>
+<span class="line "><span class="ln">15</span>      window.LIVEBOOK_PUBLIC_BASE_URL_PATH = &quot;&lt;%= LivebookWeb.VerifiedRoutes.public_base_url_path() %&gt;&quot;</span>
+<span class="line "><span class="ln">16</span>    &lt;/script&gt;</span>
+<span class="line hit"><span class="ln">17</span>    &lt;%= if dev?() do %&gt;</span>
+<span class="line "><span class="ln">18</span>      &lt;script phx-track-static type=&quot;module&quot; src=&quot;http://localhost:4432/@vite/client&quot;&gt;</span>
+<span class="line "><span class="ln">19</span>      &lt;/script&gt;</span>
+<span class="line "><span class="ln">20</span>      &lt;link phx-track-static rel=&quot;stylesheet&quot; href=&quot;http://localhost:4432/css/app.css&quot; /&gt;</span>
+<span class="line "><span class="ln">21</span>      &lt;%!-- This prevents the script to be loaded twice in Chrome --%&gt;</span>
+<span class="line "><span class="ln">22</span>      &lt;link rel=&quot;modulepreload&quot; href=&quot;http://localhost:4432/js/app.js&quot; /&gt;</span>
+<span class="line "><span class="ln">23</span>      &lt;script phx-track-static type=&quot;module&quot; src=&quot;http://localhost:4432/js/app.js&quot;&gt;</span>
+<span class="line "><span class="ln">24</span>      &lt;/script&gt;</span>
+<span class="line "><span class="ln">25</span>    &lt;% else %&gt;</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: the following conditional expression:
+
+        dev?()
+
+    will always evaluate to:
+
+        dynamic(true)
+
+    type warning found at:
+    │
+ 17 │     &lt;%= if dev?() do %&gt;
+    │     ~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/livebook_web/components/layouts/root.html.heex:17: LivebookWeb.Layouts.root/1</pre>
+  </details>
+</article>
+<article class="warning-card ctx" id="Livebook-3" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 3 · Already on Refine</div>
+      <h3>the following conditional expression:</h3>
+      <p class="loc">└─ lib/livebook_web/controllers/error_html.ex:63: LivebookWeb.ErrorHTML.&quot;error_page (overridable 1)&quot;/1</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same dev?/0 compile-time constant as the root layout warning.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The error page checks LivebookWeb.Layouts.dev?/0, which is true in this dev compile. The else branch is dead only for this artifact.</p>
+      <h4>Recommendation</h4>
+      <p>Do not count as a no-dynamic false positive; it is an existing compile-environment warning.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">55</span>    &lt;html lang=&quot;en&quot;&gt;</span>
+<span class="line "><span class="ln">56</span>      &lt;head&gt;</span>
+<span class="line "><span class="ln">57</span>        &lt;meta charset=&quot;utf-8&quot; /&gt;</span>
+<span class="line "><span class="ln">58</span>        &lt;meta http-equiv=&quot;X-UA-Compatible&quot; content=&quot;IE=edge&quot; /&gt;</span>
+<span class="line "><span class="ln">59</span>        &lt;meta name=&quot;viewport&quot; content=&quot;width=device-width, initial-scale=1.0&quot; /&gt;</span>
+<span class="line "><span class="ln">60</span>        &lt;link rel=&quot;icon&quot; type=&quot;image/svg+xml&quot; href={~p&quot;/favicons/favicon.svg&quot;} /&gt;</span>
+<span class="line "><span class="ln">61</span>        &lt;link rel=&quot;alternate icon&quot; type=&quot;image/png&quot; href={~p&quot;/favicons/favicon.png&quot;} /&gt;</span>
+<span class="line "><span class="ln">62</span>        &lt;title&gt;{@status} - Livebook&lt;/title&gt;</span>
+<span class="line hit"><span class="ln">63</span>        &lt;%= if LivebookWeb.Layouts.dev?() do %&gt;</span>
+<span class="line "><span class="ln">64</span>          &lt;script phx-track-static type=&quot;module&quot; src=&quot;http://localhost:4432/@vite/client&quot;&gt;</span>
+<span class="line "><span class="ln">65</span>          &lt;/script&gt;</span>
+<span class="line "><span class="ln">66</span>          &lt;link phx-track-static rel=&quot;stylesheet&quot; href=&quot;http://localhost:4432/css/app.css&quot; /&gt;</span>
+<span class="line "><span class="ln">67</span>        &lt;% else %&gt;</span>
+<span class="line "><span class="ln">68</span>          &lt;link phx-track-static rel=&quot;stylesheet&quot; href={~p&quot;/assets/app.css&quot;} /&gt;</span>
+<span class="line "><span class="ln">69</span>        &lt;% end %&gt;</span>
+<span class="line "><span class="ln">70</span>      &lt;/head&gt;</span>
+<span class="line "><span class="ln">71</span>      &lt;body&gt;</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: the following conditional expression:
+
+        LivebookWeb.Layouts.dev?()
+
+    will always evaluate to:
+
+        dynamic(true)
+
+    type warning found at:
+    │
+ 63 │         &lt;%= if LivebookWeb.Layouts.dev?() do %&gt;
+    │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/livebook_web/controllers/error_html.ex:63: LivebookWeb.ErrorHTML.&quot;error_page (overridable 1)&quot;/1</pre>
+  </details>
+</article>
+<article class="warning-card ctx" id="Livebook-4" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 4 · Already on Refine</div>
+      <h3>the following clause cannot match because the previous clauses already matched all possible values:</h3>
+      <p class="loc">└─ lib/livebook_web/controllers/auth_html/index.html.heex:15: LivebookWeb.AuthHTML.index/1</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same Livebook.Config.app?/0 compile-time target constant as the Kubernetes warning.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The auth template contains desktop-app copy guarded by app?/0. In this non-app build the desktop branch is unreachable, while an :app target can compile the other result.</p>
+      <h4>Recommendation</h4>
+      <p>Existing target-specific warning. Not evidence of a runtime bug.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">7</span>      Authentication required</span>
+<span class="line "><span class="ln">8</span>    &lt;/div&gt;</span>
+<span class="line "><span class="ln">9</span></span>
+<span class="line "><span class="ln">10</span>    &lt;div class=&quot;mb-8 text-sm text-gray-200&quot;&gt;</span>
+<span class="line "><span class="ln">11</span>      &lt;p :if={@authentication_mode == :password}&gt;</span>
+<span class="line "><span class="ln">12</span>        Type password to access the Livebook.</span>
+<span class="line "><span class="ln">13</span>      &lt;/p&gt;</span>
+<span class="line "><span class="ln">14</span>      &lt;div :if={@authentication_mode == :token} class=&quot;space-y-2&quot;&gt;</span>
+<span class="line hit"><span class="ln">15</span>        &lt;%= if Livebook.Config.app?() do %&gt;</span>
+<span class="line "><span class="ln">16</span>          &lt;p&gt;</span>
+<span class="line "><span class="ln">17</span>            Please open Livebook menu in your taskbar, click &quot;Copy URL&quot;, and paste it in your browser&#x27;s address bar.</span>
+<span class="line "><span class="ln">18</span>          &lt;/p&gt;</span>
+<span class="line "><span class="ln">19</span>        &lt;% else %&gt;</span>
+<span class="line "><span class="ln">20</span>          &lt;p&gt;</span>
+<span class="line "><span class="ln">21</span>            Please check out the console for authentication URL or type the token directly</span>
+<span class="line "><span class="ln">22</span>            here.</span>
+<span class="line "><span class="ln">23</span>          &lt;/p&gt;</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: the following clause cannot match because the previous clauses already matched all possible values:
+
+        _ -&gt;
+
+    it attempts to match on the result of:
+
+        Livebook.Config.app?()
+
+    which has the already matched type:
+
+        dynamic(false)
+
+    type warning found at:
+    │
+ 15 │         &lt;%= if Livebook.Config.app?() do %&gt;
+    │         ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/livebook_web/controllers/auth_html/index.html.heex:15: LivebookWeb.AuthHTML.index/1</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Livebook-5" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 5 · New vs Refine</div>
+      <h3>incompatible types in binary construction:</h3>
+      <p class="loc">└─ lib/livebook_web/helpers/codec_helpers.ex:72:21: LivebookWeb.CodecHelpers.encode_pcm_as_wav_header/3</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The WAV header binary sizes are derived from integer parameters and div/2.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>encode_pcm_as_wav_stream!/6 specs file_size, num_channels, and sampling_rate as integers. div(pcm_size, 4), multiplication by integer constants, and addition should remain integers. The warning appears because arithmetic results are widened to float() or integer().</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive. The code would only fail if callers violate the integer metadata contract.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">64</span>    bytes_per_sample = 4</span>
+<span class="line "><span class="ln">65</span></span>
+<span class="line "><span class="ln">66</span>    block_align = num_channels * bytes_per_sample</span>
+<span class="line "><span class="ln">67</span>    byte_rate = sampling_rate * block_align</span>
+<span class="line "><span class="ln">68</span>    data_size = num_frames * block_align</span>
+<span class="line "><span class="ln">69</span></span>
+<span class="line "><span class="ln">70</span>    &lt;&lt;</span>
+<span class="line "><span class="ln">71</span>      &quot;RIFF&quot;,</span>
+<span class="line hit"><span class="ln">72</span>      36 + data_size::32-unsigned-integer-little,</span>
+<span class="line "><span class="ln">73</span>      &quot;WAVE&quot;,</span>
+<span class="line "><span class="ln">74</span>      &quot;fmt &quot;,</span>
+<span class="line "><span class="ln">75</span>      16::32-unsigned-integer-little,</span>
+<span class="line "><span class="ln">76</span>      # 3 indicates 32-bit float PCM</span>
+<span class="line "><span class="ln">77</span>      3::16-unsigned-integer-little,</span>
+<span class="line "><span class="ln">78</span>      num_channels::16-unsigned-integer-little,</span>
+<span class="line "><span class="ln">79</span>      sampling_rate::32-unsigned-integer-little,</span>
+<span class="line "><span class="ln">80</span>      byte_rate::32-unsigned-integer-little,</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types in binary construction:
+
+        &lt;&lt;..., 36 + data_size::integer-little-unsigned-size(32), ...&gt;&gt;
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where &quot;data_size&quot; was given the type:
+
+        # type: float() or integer()
+        # from: lib/livebook_web/helpers/codec_helpers.ex:68:15
+        data_size = num_frames * block_align
+
+    type warning found at:
+    │
+ 72 │       36 + data_size::32-unsigned-integer-little,
+    │                     ~
+    │
+    └─ lib/livebook_web/helpers/codec_helpers.ex:72:21: LivebookWeb.CodecHelpers.encode_pcm_as_wav_header/3</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Livebook-6" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Livebook warning 6 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/livebook/live_markdown/markdown_helpers.ex:364:21: Livebook.LiveMarkdown.MarkdownHelpers.pad_whitespace/2</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>String.duplicate/2 receives a padding width computed from iodata lengths.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>IO.iodata_length/1 and String/iodata length computations are integers; widths are built from those lengths; max(width - length, 0) is a non-negative integer. The checker widens the subtraction/max result.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">356</span>  end</span>
+<span class="line "><span class="ln">357</span></span>
+<span class="line "><span class="ln">358</span>  defp pad_whitespace(cells, widths) do</span>
+<span class="line "><span class="ln">359</span>    cells</span>
+<span class="line "><span class="ln">360</span>    |&gt; Enum.zip(widths)</span>
+<span class="line "><span class="ln">361</span>    |&gt; Enum.map(fn {cell, width} -&gt;</span>
+<span class="line "><span class="ln">362</span>      length = IO.iodata_length(cell)</span>
+<span class="line "><span class="ln">363</span>      missing = max(width - length, 0)</span>
+<span class="line hit"><span class="ln">364</span>      [cell, String.duplicate(&quot; &quot;, missing)]</span>
+<span class="line "><span class="ln">365</span>    end)</span>
+<span class="line "><span class="ln">366</span>  end</span>
+<span class="line "><span class="ln">367</span></span>
+<span class="line "><span class="ln">368</span>  defp cell_grid_to_md_table(cell_grid) do</span>
+<span class="line "><span class="ln">369</span>    cell_grid</span>
+<span class="line "><span class="ln">370</span>    |&gt; Enum.map(fn cells -&gt;</span>
+<span class="line "><span class="ln">371</span>      [&quot;| &quot;, Enum.intersperse(cells, &quot; | &quot;), &quot; |&quot;]</span>
+<span class="line "><span class="ln">372</span>    end)</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to String.duplicate/2:
+
+         String.duplicate(&quot; &quot;, missing)
+
+     given types:
+
+         binary(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer()
+
+     where &quot;missing&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/livebook/live_markdown/markdown_helpers.ex:363:15
+         missing = max(width - length, 0)
+
+     type warning found at:
+     │
+ 364 │       [cell, String.duplicate(&quot; &quot;, missing)]
+     │                     ~
+     │
+     └─ lib/livebook/live_markdown/markdown_helpers.ex:364:21: Livebook.LiveMarkdown.MarkdownHelpers.pad_whitespace/2</pre>
+  </details>
+</article></section><section class="project" id="Credo"><h2>Credo</h2>
+<article class="warning-card fp" id="Credo-1" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 1 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/credo/cli/command/diff/output/default.ex:430:14: Credo.CLI.Command.Diff.Output.Default.print_issue_trigger_marker/4</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The marker padding width is integer column arithmetic after the nil-column clause.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The preceding function head handles %Issue{column: nil}. The remaining clause uses source-line lengths and issue.column to compute max(column - offset - 1, 0). Under the Credo Issue invariant, column is an integer here; the checker widens the arithmetic result.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">422</span>        nil -&gt; 1</span>
+<span class="line "><span class="ln">423</span>        atom -&gt; atom |&gt; to_string |&gt; String.length()</span>
+<span class="line "><span class="ln">424</span>      end</span>
+<span class="line "><span class="ln">425</span></span>
+<span class="line "><span class="ln">426</span>    [</span>
+<span class="line "><span class="ln">427</span>      diff_marker(issue.diff_marker),</span>
+<span class="line "><span class="ln">428</span>      UI.edge([outer_color, :faint], @indent),</span>
+<span class="line "><span class="ln">429</span>      inner_color,</span>
+<span class="line hit"><span class="ln">430</span>      String.duplicate(&quot; &quot;, x),</span>
+<span class="line "><span class="ln">431</span>      :faint,</span>
+<span class="line "><span class="ln">432</span>      String.duplicate(&quot;^&quot;, w)</span>
+<span class="line "><span class="ln">433</span>    ]</span>
+<span class="line "><span class="ln">434</span>    |&gt; UI.puts()</span>
+<span class="line "><span class="ln">435</span>  end</span>
+<span class="line "><span class="ln">436</span></span>
+<span class="line "><span class="ln">437</span>  defp filtered_diff_markers(exec) do</span>
+<span class="line "><span class="ln">438</span>    filtered_diff_markers = [:new]</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to String.duplicate/2:
+
+         String.duplicate(&quot; &quot;, x)
+
+     given types:
+
+         binary(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer()
+
+     where &quot;x&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/credo/cli/command/diff/output/default.ex:418:7
+         x = max(issue.column - offset - 1, 0)
+
+     type warning found at:
+     │
+ 430 │       String.duplicate(&quot; &quot;, x),
+     │              ~
+     │
+     └─ lib/credo/cli/command/diff/output/default.ex:430:14: Credo.CLI.Command.Diff.Output.Default.print_issue_trigger_marker/4</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Credo-2" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 2 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/credo/cli/command/suggest/output/default.ex:353:14: Credo.CLI.Command.Suggest.Output.Default.print_issue_trigger_marker/4</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same marker-padding pattern as the diff output module.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>offset comes from String.length/1, and issue.column is the one-based diagnostic column after the nil-column path. max/2 should produce a non-negative integer.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">345</span>      case issue.trigger do</span>
+<span class="line "><span class="ln">346</span>        nil -&gt; 1</span>
+<span class="line "><span class="ln">347</span>        atom -&gt; atom |&gt; to_string |&gt; String.length()</span>
+<span class="line "><span class="ln">348</span>      end</span>
+<span class="line "><span class="ln">349</span></span>
+<span class="line "><span class="ln">350</span>    [</span>
+<span class="line "><span class="ln">351</span>      UI.edge([outer_color, :faint], @indent),</span>
+<span class="line "><span class="ln">352</span>      inner_color,</span>
+<span class="line hit"><span class="ln">353</span>      String.duplicate(&quot; &quot;, x),</span>
+<span class="line "><span class="ln">354</span>      :faint,</span>
+<span class="line "><span class="ln">355</span>      String.duplicate(&quot;^&quot;, w)</span>
+<span class="line "><span class="ln">356</span>    ]</span>
+<span class="line "><span class="ln">357</span>    |&gt; UI.puts()</span>
+<span class="line "><span class="ln">358</span>  end</span>
+<span class="line "><span class="ln">359</span>end</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to String.duplicate/2:
+
+         String.duplicate(&quot; &quot;, x)
+
+     given types:
+
+         binary(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer()
+
+     where &quot;x&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/credo/cli/command/suggest/output/default.ex:342:7
+         x = max(issue.column - offset - 1, 0)
+
+     type warning found at:
+     │
+ 353 │       String.duplicate(&quot; &quot;, x),
+     │              ~
+     │
+     └─ lib/credo/cli/command/suggest/output/default.ex:353:14: Credo.CLI.Command.Suggest.Output.Default.print_issue_trigger_marker/4</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Credo-3" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 3 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/credo/code/interpolation_helper.ex:60:39: Credo.Code.InterpolationHelper.replace_line/4</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Interpolation replacement lengths are token column differences.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>col_start and col_end come from tokenizer positions and String.length/1 paths. max(col_end - col_start, 0) is a count used for String.duplicate/2. The warning is arithmetic widening, not a demonstrated bad call.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">52</span>        )</span>
+<span class="line "><span class="ln">53</span>    end)</span>
+<span class="line "><span class="ln">54</span>  end</span>
+<span class="line "><span class="ln">55</span></span>
+<span class="line "><span class="ln">56</span>  defp replace_line(line, col_start, col_end, char) do</span>
+<span class="line "><span class="ln">57</span>    length = max(col_end - col_start, 0)</span>
+<span class="line "><span class="ln">58</span>    line = String.to_charlist(line)</span>
+<span class="line "><span class="ln">59</span>    part1 = Enum.slice(line, 0, col_start - 1)</span>
+<span class="line hit"><span class="ln">60</span>    part2 = String.to_charlist(String.duplicate(char, length))</span>
+<span class="line "><span class="ln">61</span>    part3 = Enum.slice(line, (col_end - 1)..-1//1)</span>
+<span class="line "><span class="ln">62</span>    List.to_string(part1 ++ part2 ++ part3)</span>
+<span class="line "><span class="ln">63</span>  end</span>
+<span class="line "><span class="ln">64</span></span>
+<span class="line "><span class="ln">65</span>  @doc false</span>
+<span class="line "><span class="ln">66</span>  def interpolation_positions(source, filename \\ &quot;nofilename&quot;) do</span>
+<span class="line "><span class="ln">67</span>    source</span>
+<span class="line "><span class="ln">68</span>    |&gt; Credo.Code.to_tokens(filename)</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to String.duplicate/2:
+
+        String.duplicate(char, length)
+
+    given types:
+
+        binary(), -float()- or integer()
+
+    but expected one of:
+
+        binary(), integer()
+
+    where &quot;char&quot; was given the types:
+
+        # type: dynamic()
+        # from: lib/credo/code/interpolation_helper.ex:56:47
+        char
+
+        # type: binary()
+        # from: lib/credo/code/interpolation_helper.ex:60:39
+        String.duplicate(char, length)
+
+    where &quot;length&quot; was given the type:
+
+        # type: float() or integer()
+        # from: lib/credo/code/interpolation_helper.ex:57:12
+        length = max(col_end - col_start, 0)
+
+    type warning found at:
+    │
+ 60 │     part2 = String.to_charlist(String.duplicate(char, length))
+    │                                       ~
+    │
+    └─ lib/credo/code/interpolation_helper.ex:60:39: Credo.Code.InterpolationHelper.replace_line/4</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Credo-4" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 4 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/credo/cli/command/list/output/default.ex:152:14: Credo.CLI.Command.List.Output.Default.print_issue_column/5</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The list output only calls print_issue_column/5 when issue.column is present.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The call site has if issue.column, and the computation uses integer string lengths plus the diagnostic column. The checker does not recover the integer field invariant strongly enough.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">144</span>        issue.trigger</span>
+<span class="line "><span class="ln">145</span>        |&gt; to_string()</span>
+<span class="line "><span class="ln">146</span>        |&gt; String.length()</span>
+<span class="line "><span class="ln">147</span>      end</span>
+<span class="line "><span class="ln">148</span></span>
+<span class="line "><span class="ln">149</span>    [</span>
+<span class="line "><span class="ln">150</span>      UI.edge([outer_color, :faint], @indent),</span>
+<span class="line "><span class="ln">151</span>      inner_color,</span>
+<span class="line hit"><span class="ln">152</span>      String.duplicate(&quot; &quot;, x),</span>
+<span class="line "><span class="ln">153</span>      :faint,</span>
+<span class="line "><span class="ln">154</span>      String.duplicate(&quot;^&quot;, w)</span>
+<span class="line "><span class="ln">155</span>    ]</span>
+<span class="line "><span class="ln">156</span>    |&gt; UI.puts()</span>
+<span class="line "><span class="ln">157</span>  end</span>
+<span class="line "><span class="ln">158</span></span>
+<span class="line "><span class="ln">159</span>  defp print_issue_line_no(source_file, term_width, issue, outer_color, inner_color) do</span>
+<span class="line "><span class="ln">160</span>    raw_line = SourceFile.line_at(source_file, issue.line_no)</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to String.duplicate/2:
+
+         String.duplicate(&quot; &quot;, x)
+
+     given types:
+
+         binary(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer()
+
+     where &quot;x&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/credo/cli/command/list/output/default.ex:138:7
+         x = max(issue.column - offset - 1, 0)
+
+     type warning found at:
+     │
+ 152 │       String.duplicate(&quot; &quot;, x),
+     │              ~
+     │
+     └─ lib/credo/cli/command/list/output/default.ex:152:14: Credo.CLI.Command.List.Output.Default.print_issue_column/5</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Credo-5" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 5 · New vs Refine</div>
+      <h3>incompatible types given to Kernel.div/2:</h3>
+      <p class="loc">└─ lib/credo/cli/output/first_run_hint.ex:15:34: Credo.CLI.Output.FirstRunHint.call/1</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>div/2 receives term width minus headline length; both are integers.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>Output.term_columns/1 returns either :io.columns() columns or an integer default. String.length/1 returns integer. The subtraction should be integer, but the checker widens it before div/2.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">7</span>  @command_padding 40</span>
+<span class="line "><span class="ln">8</span>  @category_count 5</span>
+<span class="line "><span class="ln">9</span></span>
+<span class="line "><span class="ln">10</span>  def call(exec) do</span>
+<span class="line "><span class="ln">11</span>    term_width = Output.term_columns()</span>
+<span class="line "><span class="ln">12</span>    issues = Execution.get_issues(exec)</span>
+<span class="line "><span class="ln">13</span></span>
+<span class="line "><span class="ln">14</span>    headline = &quot; 8&lt; &quot;</span>
+<span class="line hit"><span class="ln">15</span>    bar = String.pad_leading(&quot;&quot;, div(term_width - String.length(headline), 2), &quot;-&quot;)</span>
+<span class="line "><span class="ln">16</span></span>
+<span class="line "><span class="ln">17</span>    UI.puts()</span>
+<span class="line "><span class="ln">18</span>    UI.puts()</span>
+<span class="line "><span class="ln">19</span>    UI.puts([:magenta, :bright, &quot;#{bar} 8&lt; #{bar}&quot;])</span>
+<span class="line "><span class="ln">20</span>    UI.puts()</span>
+<span class="line "><span class="ln">21</span>    UI.puts()</span>
+<span class="line "><span class="ln">22</span></span>
+<span class="line "><span class="ln">23</span>    issue_count = Enum.count(issues)</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to Kernel.div/2:
+
+        div(term_width - String.length(headline), 2)
+
+    given types:
+
+        -float()- or integer(), integer()
+
+    but expected one of:
+
+        integer(), integer()
+
+    where &quot;headline&quot; was given the type:
+
+        # type: binary()
+        # from: lib/credo/cli/output/first_run_hint.ex:14:14
+        headline = &quot; 8&lt; &quot;
+
+    where &quot;term_width&quot; was given the type:
+
+        # type: integer()
+        # from: lib/credo/cli/output/first_run_hint.ex:15:49
+        term_width - String.length(headline)
+
+    type warning found at:
+    │
+ 15 │     bar = String.pad_leading(&quot;&quot;, div(term_width - String.length(headline), 2), &quot;-&quot;)
+    │                                  ~
+    │
+    └─ lib/credo/cli/output/first_run_hint.ex:15:34: Credo.CLI.Output.FirstRunHint.call/1</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="Credo-6" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Credo warning 6 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/credo/cli/command/explain/output/default.ex:506:14: Credo.CLI.Command.Explain.Output.Default.print_issue_column/4</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same issue-column padding pattern as the list output module.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The call site checks if column before calling. The local arithmetic computes a count for spaces and should remain integer.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">498</span>        trigger</span>
+<span class="line "><span class="ln">499</span>        |&gt; to_string()</span>
+<span class="line "><span class="ln">500</span>        |&gt; String.length()</span>
+<span class="line "><span class="ln">501</span>      end</span>
+<span class="line "><span class="ln">502</span></span>
+<span class="line "><span class="ln">503</span>    [</span>
+<span class="line "><span class="ln">504</span>      UI.edge([outer_color, :faint], @indent),</span>
+<span class="line "><span class="ln">505</span>      inner_color,</span>
+<span class="line hit"><span class="ln">506</span>      String.duplicate(&quot; &quot;, x),</span>
+<span class="line "><span class="ln">507</span>      :faint,</span>
+<span class="line "><span class="ln">508</span>      String.duplicate(&quot;^&quot;, w)</span>
+<span class="line "><span class="ln">509</span>    ]</span>
+<span class="line "><span class="ln">510</span>    |&gt; UI.puts()</span>
+<span class="line "><span class="ln">511</span>  end</span>
+<span class="line "><span class="ln">512</span></span>
+<span class="line "><span class="ln">513</span>  defp print_issue_line_no(</span>
+<span class="line "><span class="ln">514</span>         term_width,</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to String.duplicate/2:
+
+         String.duplicate(&quot; &quot;, x)
+
+     given types:
+
+         binary(), -float()- or integer()
+
+     but expected one of:
+
+         binary(), integer()
+
+     where &quot;x&quot; was given the type:
+
+         # type: float() or integer()
+         # from: lib/credo/cli/command/explain/output/default.ex:492:7
+         x = max(column - offset - 1, 0)
+
+     type warning found at:
+     │
+ 506 │       String.duplicate(&quot; &quot;, x),
+     │              ~
+     │
+     └─ lib/credo/cli/command/explain/output/default.ex:506:14: Credo.CLI.Command.Explain.Output.Default.print_issue_column/4</pre>
+  </details>
+</article></section><section class="project" id="ExDoc"><h2>ExDoc</h2>
+<article class="warning-card true" id="ExDoc-1" data-kind="benign-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">ExDoc warning 1 · Already on Refine</div>
+      <h3>the following clause cannot match because the previous clauses already matched all possible values:</h3>
+      <p class="loc">└─ lib/ex_doc/retriever.ex:118:9: ExDoc.Retriever.docs_chunk/1</p>
+    </div>
+    <div class="badges"><span class="badge true">Benign true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The catch-all branch is unreachable for Code.fetch_docs/1 return types known to the current compiler.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The case already covers {:docs_v1, ...} and {:error, ...}. The final _ branch is a defensive future-version error path for a docs chunk shape outside the current spec.</p>
+      <h4>Recommendation</h4>
+      <p>Not a false positive for this compiler. It is deliberate future-proofing and predates no-dynamic.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">110</span>      {:error, :module_not_found} -&gt;</span>
+<span class="line "><span class="ln">111</span>        unless Code.ensure_loaded?(module) do</span>
+<span class="line "><span class="ln">112</span>          raise Error, &quot;module #{inspect(module)} is not defined/available&quot;</span>
+<span class="line "><span class="ln">113</span>        end</span>
+<span class="line "><span class="ln">114</span></span>
+<span class="line "><span class="ln">115</span>      {:error, _} = error -&gt;</span>
+<span class="line "><span class="ln">116</span>        raise Error, &quot;error accessing #{inspect(module)}: #{inspect(error)}&quot;</span>
+<span class="line "><span class="ln">117</span></span>
+<span class="line hit"><span class="ln">118</span>      _ -&gt;</span>
+<span class="line "><span class="ln">119</span>        raise Error,</span>
+<span class="line "><span class="ln">120</span>              &quot;unknown format in Docs chunk. This likely means you are running on &quot; &lt;&gt;</span>
+<span class="line "><span class="ln">121</span>                &quot;a more recent Elixir version that is not supported by ExDoc. Please update.&quot;</span>
+<span class="line "><span class="ln">122</span>    end</span>
+<span class="line "><span class="ln">123</span>  end</span>
+<span class="line "><span class="ln">124</span></span>
+<span class="line "><span class="ln">125</span>  defp generate_node(module, module_data, config) do</span>
+<span class="line "><span class="ln">126</span>    source = %{</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the following clause cannot match because the previous clauses already matched all possible values:
+
+         _ -&gt;
+
+     it attempts to match on the result of:
+
+         result
+
+     which has the already matched type:
+
+         dynamic({:docs_v1, term(), term(), term(), term(), term(), term()} or {:error, term()})
+
+     type warning found at:
+     │
+ 118 │       _ -&gt;
+     │         ~
+     │
+     └─ lib/ex_doc/retriever.ex:118:9: ExDoc.Retriever.docs_chunk/1</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="ExDoc-2" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">ExDoc warning 2 · New vs Refine</div>
+      <h3>incompatible types in binary construction:</h3>
+      <p class="loc">└─ lib/ex_doc/formatter/epub.ex:155:43: ExDoc.Formatter.EPUB.uuid4/0</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>:rand.uniform(integer) - 1 is used as an integer binary segment.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The module constants are integers and :rand.uniform(N) with integer N returns an integer. Subtracting 1 should remain integer. The checker widens the arithmetic result.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as no-dynamic arithmetic false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">147</span></span>
+<span class="line "><span class="ln">148</span>  @two_power_16 65536</span>
+<span class="line "><span class="ln">149</span>  @two_power_32 4_294_967_296</span>
+<span class="line "><span class="ln">150</span>  @two_power_48 281_474_976_710_656</span>
+<span class="line "><span class="ln">151</span></span>
+<span class="line "><span class="ln">152</span>  defp uuid4 do</span>
+<span class="line "><span class="ln">153</span>    Enum.map_join(</span>
+<span class="line "><span class="ln">154</span>      [</span>
+<span class="line hit"><span class="ln">155</span>        &lt;&lt;:rand.uniform(@two_power_32) - 1::32&gt;&gt;,</span>
+<span class="line "><span class="ln">156</span>        &lt;&lt;:rand.uniform(@two_power_16) - 1::16&gt;&gt;,</span>
+<span class="line "><span class="ln">157</span>        &lt;&lt;:rand.uniform(@two_power_16) - 1::16&gt;&gt;,</span>
+<span class="line "><span class="ln">158</span>        &lt;&lt;:rand.uniform(@two_power_16) - 1::16&gt;&gt;,</span>
+<span class="line "><span class="ln">159</span>        &lt;&lt;:rand.uniform(@two_power_48) - 1::48&gt;&gt;</span>
+<span class="line "><span class="ln">160</span>      ],</span>
+<span class="line "><span class="ln">161</span>      &lt;&lt;45&gt;&gt;,</span>
+<span class="line "><span class="ln">162</span>      &amp;Base.encode16(&amp;1, case: :lower)</span>
+<span class="line "><span class="ln">163</span>    )</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types in binary construction:
+
+         &lt;&lt;:rand.uniform(4_294_967_296) - 1::integer-size(32)&gt;&gt;
+
+     got type:
+
+         float() or integer()
+
+     but expected type:
+
+         integer()
+
+     type warning found at:
+     │
+ 155 │         &lt;&lt;:rand.uniform(@two_power_32) - 1::32&gt;&gt;,
+     │                                           ~
+     │
+     └─ lib/ex_doc/formatter/epub.ex:155:43: ExDoc.Formatter.EPUB.uuid4/0</pre>
+  </details>
+</article></section><section class="project" id="Spitfire"><h2>Spitfire</h2>
+<article class="warning-card fp" id="Spitfire-1" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">Spitfire warning 1 · New vs Refine</div>
+      <h3>incompatible types given to String.duplicate/2:</h3>
+      <p class="loc">└─ lib/spitfire/tracer.ex:30:23: Spitfire.Tracer.stop_trace/1</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">Medium confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The indentation value is maintained as an integer in the process dictionary.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>Process.get/2 is typed as term(), so the checker cannot prove indent() returns an integer. The module itself writes the key with integer increment/decrement paths. The warning would become real only if external code corrupts the same process dictionary key.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as an invariant-based false positive; adding an integer guard or typed wrapper could document the invariant.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">22</span></span>
+<span class="line "><span class="ln">23</span>  def start_trace(name, attrs) do</span>
+<span class="line "><span class="ln">24</span>    indent = increment_indent()</span>
+<span class="line "><span class="ln">25</span>    IO.puts(&quot;#{String.duplicate(&quot; &quot;, indent * 2)}BEGIN[#{a2s(attrs)}]: #{name}&quot;)</span>
+<span class="line "><span class="ln">26</span>    :ok</span>
+<span class="line "><span class="ln">27</span>  end</span>
+<span class="line "><span class="ln">28</span></span>
+<span class="line "><span class="ln">29</span>  def stop_trace(name) do</span>
+<span class="line hit"><span class="ln">30</span>    IO.puts(&quot;#{String.duplicate(&quot; &quot;, indent() * 2)}END: #{name}&quot;)</span>
+<span class="line "><span class="ln">31</span>    decrement_indent()</span>
+<span class="line "><span class="ln">32</span>    :ok</span>
+<span class="line "><span class="ln">33</span>  end</span>
+<span class="line "><span class="ln">34</span></span>
+<span class="line "><span class="ln">35</span>  defp indent do</span>
+<span class="line "><span class="ln">36</span>    Process.get(@indent, 0)</span>
+<span class="line "><span class="ln">37</span>  end</span>
+<span class="line "><span class="ln">38</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to String.duplicate/2:
+
+        String.duplicate(&quot; &quot;, indent() * 2)
+
+    given types:
+
+        binary(), -float()- or integer()
+
+    but expected one of:
+
+        binary(), integer()
+
+    type warning found at:
+    │
+ 30 │     IO.puts(&quot;#{String.duplicate(&quot; &quot;, indent() * 2)}END: #{name}&quot;)
+    │                       ~
+    │
+    └─ lib/spitfire/tracer.ex:30:23: Spitfire.Tracer.stop_trace/1</pre>
+  </details>
+</article>
+<article class="warning-card true" id="Spitfire-2" data-kind="benign-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">Spitfire warning 2 · Already on Refine</div>
+      <h3>the following conditional expression will always succeed:</h3>
+      <p class="loc">└─ lib/spitfire/env.ex:220: Spitfire.Env.expand/3</p>
+    </div>
+    <div class="badges"><span class="badge true">Benign true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The with condition repeats is_atom(arg) immediately inside an if is_atom(arg).</p>
+      <h4>Why The Warning Appears</h4>
+      <p>Inside the true branch of if is_atom(arg), the expression is_atom(arg) and Code.ensure_loaded?(arg) has a first operand that is always true.</p>
+      <h4>Recommendation</h4>
+      <p>This is not a false positive. It is harmless redundant checking and predates no-dynamic.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">212</span>  end</span>
+<span class="line "><span class="ln">213</span></span>
+<span class="line "><span class="ln">214</span>  defp expand({:import, meta, [arg, opts]} = node, state, env) do</span>
+<span class="line "><span class="ln">215</span>    {arg, state, env} = expand(arg, state, env)</span>
+<span class="line "><span class="ln">216</span>    {opts, state, env} = expand_directive_opts(opts, state, env)</span>
+<span class="line "><span class="ln">217</span></span>
+<span class="line "><span class="ln">218</span>    if is_atom(arg) do</span>
+<span class="line "><span class="ln">219</span>      # An actual compiler would raise if the module is not defined or if the import fails.</span>
+<span class="line hit"><span class="ln">220</span>      with true &lt;- is_atom(arg) and Code.ensure_loaded?(arg),</span>
+<span class="line "><span class="ln">221</span>           {:ok, env} &lt;- Macro.Env.define_import(env, meta, arg, [trace: false] ++ opts) do</span>
+<span class="line "><span class="ln">222</span>        {arg, state, env}</span>
+<span class="line "><span class="ln">223</span>      else</span>
+<span class="line "><span class="ln">224</span>        _ -&gt; {arg, state, env}</span>
+<span class="line "><span class="ln">225</span>      end</span>
+<span class="line "><span class="ln">226</span>    else</span>
+<span class="line "><span class="ln">227</span>      {node, state, env}</span>
+<span class="line "><span class="ln">228</span>    end</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the following conditional expression will always succeed:
+
+         is_atom(arg)
+
+     because it evaluates to:
+
+         true
+
+     where &quot;arg&quot; was given the type:
+
+         # type: dynamic(atom())
+         # from: lib/spitfire/env.ex:218:8
+         is_atom(arg)
+
+     type warning found at:
+     │
+ 220 │       with true &lt;- is_atom(arg) and Code.ensure_loaded?(arg),
+     │       ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/spitfire/env.ex:220: Spitfire.Env.expand/3</pre>
+  </details>
+</article></section><section class="project" id="OpenApiSpex"><h2>OpenApiSpex</h2>
+<article class="warning-card risk" id="OpenApiSpex-1" data-kind="possible-real" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 1 · New vs Refine</div>
+      <h3>incompatible types given to Map.get/2:</h3>
+      <p class="loc">└─ lib/open_api_spex/operation.ex:319:12: OpenApiSpex.Operation.validate_body_schema/4</p>
+    </div>
+    <div class="badges"><span class="badge risk">Possible real issue</span><span class="badge confidence">Medium confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Map.get(content, content_type) can be nil when the request content type is absent from the request body content map.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The code immediately pipes that result into Map.get(:schema). There is no local nil guard/default. If an earlier invariant guarantees content_type exists, the checker cannot see it; from this function alone, unsupported or nil content types can crash.</p>
+      <h4>Recommendation</h4>
+      <p>Do not dismiss as a false positive. Confirm the caller invariant or add a nil case that returns a validation error instead of crashing.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">311</span>  defp validate_body_schema(%RequestBody{required: false}, params, _content_type, _schemas)</span>
+<span class="line "><span class="ln">312</span>       when map_size(params) == 0 do</span>
+<span class="line "><span class="ln">313</span>    :ok</span>
+<span class="line "><span class="ln">314</span>  end</span>
+<span class="line "><span class="ln">315</span></span>
+<span class="line "><span class="ln">316</span>  defp validate_body_schema(%RequestBody{content: content}, params, content_type, schemas) do</span>
+<span class="line "><span class="ln">317</span>    content</span>
+<span class="line "><span class="ln">318</span>    |&gt; Map.get(content_type)</span>
+<span class="line hit"><span class="ln">319</span>    |&gt; Map.get(:schema)</span>
+<span class="line "><span class="ln">320</span>    |&gt; Schema.validate(params, schemas)</span>
+<span class="line "><span class="ln">321</span>  end</span>
+<span class="line "><span class="ln">322</span></span>
+<span class="line "><span class="ln">323</span>  defp build_response_content_map(nil, _media_type_opts), do: nil</span>
+<span class="line "><span class="ln">324</span></span>
+<span class="line "><span class="ln">325</span>  defp build_response_content_map(media_type, media_type_opts),</span>
+<span class="line "><span class="ln">326</span>    do: build_content_map(media_type, media_type_opts)</span>
+<span class="line "><span class="ln">327</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to Map.get/2:
+
+         Map.get(
+           Map.get(
+             content,
+             content_type
+           ),
+           :schema
+         )
+
+     given types:
+
+         dynamic() or nil, :schema
+
+     but expected one of:
+
+         map(), term()
+
+     where &quot;content&quot; was given the type:
+
+         # type: dynamic(map())
+         # from: lib/open_api_spex/operation.ex:318:12
+         Map.get(
+           content,
+           content_type
+         )
+
+     where &quot;content_type&quot; was given the type:
+
+         # type: dynamic()
+         # from: lib/open_api_spex/operation.ex:316:69
+         content_type
+
+     type warning found at:
+     │
+ 319 │     |&gt; Map.get(:schema)
+     │            ~
+     │
+     └─ lib/open_api_spex/operation.ex:319:12: OpenApiSpex.Operation.validate_body_schema/4</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="OpenApiSpex-2" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 2 · New vs Refine</div>
+      <h3>incompatible types given to Map.get/3:</h3>
+      <p class="loc">└─ lib/open_api_spex/operation2.ex:57:14: OpenApiSpex.Operation2.cast_conn/2</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>conn is a Plug.Conn struct, and Plug.Conn.t has a private map field.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The checker models Map.get(conn, :private) as possibly nil, but real Plug.Conn structs always carry :private as a map. The code could be clearer as conn.private, but the warning does not indicate a real nil path under the spec.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as struct-field precision false positive; conn.private may help the checker.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">49</span>  end</span>
+<span class="line "><span class="ln">50</span></span>
+<span class="line "><span class="ln">51</span>  ## Private functions</span>
+<span class="line "><span class="ln">52</span></span>
+<span class="line "><span class="ln">53</span>  defp cast_conn(conn, body) do</span>
+<span class="line "><span class="ln">54</span>    private_data =</span>
+<span class="line "><span class="ln">55</span>      conn</span>
+<span class="line "><span class="ln">56</span>      |&gt; Map.get(:private)</span>
+<span class="line hit"><span class="ln">57</span>      |&gt; Map.get(:open_api_spex, %{})</span>
+<span class="line "><span class="ln">58</span>      |&gt; Map.put(:body_params, body)</span>
+<span class="line "><span class="ln">59</span></span>
+<span class="line "><span class="ln">60</span>    Plug.Conn.put_private(conn, :open_api_spex, private_data)</span>
+<span class="line "><span class="ln">61</span>  end</span>
+<span class="line "><span class="ln">62</span></span>
+<span class="line "><span class="ln">63</span>  defp maybe_replace_body(conn, _body, false), do: conn</span>
+<span class="line "><span class="ln">64</span>  defp maybe_replace_body(conn, body, true), do: %{conn | body_params: body}</span>
+<span class="line "><span class="ln">65</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to Map.get/3:
+
+        Map.get(
+          Map.get(
+            conn,
+            :private
+          ),
+          :open_api_spex,
+          %{}
+        )
+
+    given types:
+
+        dynamic() or nil, :open_api_spex, empty_map()
+
+    but expected one of:
+
+        map(), term(), term()
+
+    where &quot;conn&quot; was given the type:
+
+        # type: dynamic(map())
+        # from: lib/open_api_spex/operation2.ex:56:14
+        Map.get(
+          conn,
+          :private
+        )
+
+    type warning found at:
+    │
+ 57 │       |&gt; Map.get(:open_api_spex, %{})
+    │              ~
+    │
+    └─ lib/open_api_spex/operation2.ex:57:14: OpenApiSpex.Operation2.cast_conn/2</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="OpenApiSpex-3" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 3 · New vs Refine</div>
+      <h3>incompatible types given to Map.get/3:</h3>
+      <p class="loc">└─ lib/open_api_spex/plug/put_api_spec.ex:33:14: OpenApiSpex.Plug.PutApiSpec.call/2</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same Plug.Conn private-field precision loss as Operation2.cast_conn/2.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>Plug calls receive a Conn.t. Map.get(conn, :private) is used as a generic map lookup, so the checker allows nil; the struct field invariant says it is a map.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as struct-field precision false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">25</span>      raise &quot;A :module option is required, but none was given to #{__MODULE__}.init/1&quot;</span>
+<span class="line "><span class="ln">26</span>  end</span>
+<span class="line "><span class="ln">27</span></span>
+<span class="line "><span class="ln">28</span>  @impl Plug</span>
+<span class="line "><span class="ln">29</span>  def call(conn, spec_module) do</span>
+<span class="line "><span class="ln">30</span>    private_data =</span>
+<span class="line "><span class="ln">31</span>      conn</span>
+<span class="line "><span class="ln">32</span>      |&gt; Map.get(:private)</span>
+<span class="line hit"><span class="ln">33</span>      |&gt; Map.get(:open_api_spex, %{})</span>
+<span class="line "><span class="ln">34</span>      |&gt; Map.put(:spec_module, spec_module)</span>
+<span class="line "><span class="ln">35</span></span>
+<span class="line "><span class="ln">36</span>    Plug.Conn.put_private(conn, :open_api_spex, private_data)</span>
+<span class="line "><span class="ln">37</span>  end</span>
+<span class="line "><span class="ln">38</span></span>
+<span class="line "><span class="ln">39</span>  @spec get_spec_and_operation_lookup(Conn.t()) ::</span>
+<span class="line "><span class="ln">40</span>          {spec :: OpenApi.t(), operation_lookup :: %{any =&gt; Operation.t()}}</span>
+<span class="line "><span class="ln">41</span>  def get_spec_and_operation_lookup(conn) do</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to Map.get/3:
+
+        Map.get(
+          Map.get(
+            conn,
+            :private
+          ),
+          :open_api_spex,
+          %{}
+        )
+
+    given types:
+
+        dynamic() or nil, :open_api_spex, empty_map()
+
+    but expected one of:
+
+        map(), term(), term()
+
+    where &quot;conn&quot; was given the type:
+
+        # type: dynamic(map())
+        # from: lib/open_api_spex/plug/put_api_spec.ex:32:14
+        Map.get(
+          conn,
+          :private
+        )
+
+    type warning found at:
+    │
+ 33 │       |&gt; Map.get(:open_api_spex, %{})
+    │              ~
+    │
+    └─ lib/open_api_spex/plug/put_api_spec.ex:33:14: OpenApiSpex.Plug.PutApiSpec.call/2</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="OpenApiSpex-4" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 4 · New vs Refine</div>
+      <h3>incompatible types given to Map.get/3:</h3>
+      <p class="loc">└─ lib/open_api_spex/cast_parameters.ex:21:14: OpenApiSpex.CastParameters.cast_conn/2</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same Plug.Conn private-field precision loss in CastParameters.cast_conn/2.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The public spec accepts Plug.Conn.t(), and Conn.t has private: assigns. The nil possibility is introduced by generic Map.get/2, not by the program invariant.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as struct-field precision false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">13</span>      {:ok, conn |&gt; cast_conn(params) |&gt; maybe_replace_params(params, replace_params)}</span>
+<span class="line "><span class="ln">14</span>    end</span>
+<span class="line "><span class="ln">15</span>  end</span>
+<span class="line "><span class="ln">16</span></span>
+<span class="line "><span class="ln">17</span>  defp cast_conn(conn, params) do</span>
+<span class="line "><span class="ln">18</span>    private_data =</span>
+<span class="line "><span class="ln">19</span>      conn</span>
+<span class="line "><span class="ln">20</span>      |&gt; Map.get(:private)</span>
+<span class="line hit"><span class="ln">21</span>      |&gt; Map.get(:open_api_spex, %{})</span>
+<span class="line "><span class="ln">22</span>      |&gt; Map.put(:params, params)</span>
+<span class="line "><span class="ln">23</span></span>
+<span class="line "><span class="ln">24</span>    Plug.Conn.put_private(conn, :open_api_spex, private_data)</span>
+<span class="line "><span class="ln">25</span>  end</span>
+<span class="line "><span class="ln">26</span></span>
+<span class="line "><span class="ln">27</span>  defp maybe_replace_params(conn, _params, false), do: conn</span>
+<span class="line "><span class="ln">28</span>  defp maybe_replace_params(conn, params, true), do: %{conn | params: params}</span>
+<span class="line "><span class="ln">29</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to Map.get/3:
+
+        Map.get(
+          Map.get(
+            conn,
+            :private
+          ),
+          :open_api_spex,
+          %{}
+        )
+
+    given types:
+
+        dynamic() or nil, :open_api_spex, empty_map()
+
+    but expected one of:
+
+        map(), term(), term()
+
+    where &quot;conn&quot; was given the type:
+
+        # type: dynamic(map())
+        # from: lib/open_api_spex/cast_parameters.ex:20:14
+        Map.get(
+          conn,
+          :private
+        )
+
+    type warning found at:
+    │
+ 21 │       |&gt; Map.get(:open_api_spex, %{})
+    │              ~
+    │
+    └─ lib/open_api_spex/cast_parameters.ex:21:14: OpenApiSpex.CastParameters.cast_conn/2</pre>
+  </details>
+</article>
+<article class="warning-card true" id="OpenApiSpex-5" data-kind="benign-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 5 · Already on Refine</div>
+      <h3>the right-hand side of || will never be executed:</h3>
+      <p class="loc">└─ lib/open_api_spex/controller.ex:184: OpenApiSpex.Controller.__api_operation__/2</p>
+    </div>
+    <div class="badges"><span class="badge true">Benign true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>description is always a binary on the success path returned by doc_for_function/4.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>doc_for_function/4 returns either nil or {:ok, {mod_meta, summary, description, meta}}, where description is produced as List.first(maybe_description) || &quot;&quot; or as &quot;&quot;. The fallback in description || &quot;&quot; is redundant.</p>
+      <h4>Recommendation</h4>
+      <p>Not a false positive. Safe cleanup: use description directly.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">176</span>  @doc false</span>
+<span class="line "><span class="ln">177</span>  @spec __api_operation__(module(), atom()) :: Operation.t() | nil</span>
+<span class="line "><span class="ln">178</span>  def __api_operation__(mod, name) do</span>
+<span class="line "><span class="ln">179</span>    case get_docs(mod, name) do</span>
+<span class="line "><span class="ln">180</span>      {:ok, {mod_meta, summary, description, meta}} -&gt;</span>
+<span class="line "><span class="ln">181</span>        %Operation{</span>
+<span class="line "><span class="ln">182</span>          summary: summary,</span>
+<span class="line "><span class="ln">183</span>          externalDocs: OperationBuilder.build_external_docs(meta, mod_meta),</span>
+<span class="line hit"><span class="ln">184</span>          description: description || &quot;&quot;,</span>
+<span class="line "><span class="ln">185</span>          operationId: OperationBuilder.build_operation_id(meta, mod, name),</span>
+<span class="line "><span class="ln">186</span>          parameters: OperationBuilder.build_parameters(meta),</span>
+<span class="line "><span class="ln">187</span>          requestBody: OperationBuilder.build_request_body(meta),</span>
+<span class="line "><span class="ln">188</span>          responses: OperationBuilder.build_responses(meta),</span>
+<span class="line "><span class="ln">189</span>          security: OperationBuilder.build_security(meta, mod_meta),</span>
+<span class="line "><span class="ln">190</span>          tags: OperationBuilder.build_tags(meta, mod_meta)</span>
+<span class="line "><span class="ln">191</span>        }</span>
+<span class="line "><span class="ln">192</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the right-hand side of || will never be executed:
+
+         description || ...
+
+     because the left-hand side always evaluates to:
+
+         dynamic(not false and not nil)
+
+     where &quot;description&quot; was given the type:
+
+         # type: dynamic(not false and not nil)
+         # from: lib/open_api_spex/controller.ex
+         {:ok, {mod_meta, summary, description, meta}}
+
+     type warning found at:
+     │
+ 184 │           description: description || &quot;&quot;,
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/open_api_spex/controller.ex:184: OpenApiSpex.Controller.__api_operation__/2</pre>
+  </details>
+</article>
+<article class="warning-card ctx" id="OpenApiSpex-6" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 6 · Already on Refine</div>
+      <h3>the right-hand side of || will never be executed:</h3>
+      <p class="loc">└─ lib/mix/tasks/openapi.spec.yaml.ex:57: Mix.Tasks.Openapi.Spec.Yaml.encoder/0</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>The YAML encoder module is present in this dependency set, so the fallback Mix.raise path is unreachable.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>OpenApiSpex.OpenApi.yaml_encoder/0 returns a compile-time module attribute. In this build it is OpenApiSpex.OpenApi.YmlrEncoder. In a build without a supported YAML encoder, the attribute may be nil.</p>
+      <h4>Recommendation</h4>
+      <p>Existing optional-dependency warning. Not a no-dynamic regression.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">49</span>        yaml</span>
+<span class="line "><span class="ln">50</span></span>
+<span class="line "><span class="ln">51</span>      {:error, error} -&gt;</span>
+<span class="line "><span class="ln">52</span>        Mix.raise(&quot;could not encode #{inspect(spec)}, error: #{inspect(error)}.&quot;)</span>
+<span class="line "><span class="ln">53</span>    end</span>
+<span class="line "><span class="ln">54</span>  end</span>
+<span class="line "><span class="ln">55</span></span>
+<span class="line "><span class="ln">56</span>  defp encoder do</span>
+<span class="line hit"><span class="ln">57</span>    OpenApiSpex.OpenApi.yaml_encoder() ||</span>
+<span class="line "><span class="ln">58</span>      Mix.raise(</span>
+<span class="line "><span class="ln">59</span>        &quot;could not load YAML encoder, please add one of supported encoders to dependencies.&quot;</span>
+<span class="line "><span class="ln">60</span>      )</span>
+<span class="line "><span class="ln">61</span>  end</span>
+<span class="line "><span class="ln">62</span>end</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: the right-hand side of || will never be executed:
+
+        OpenApiSpex.OpenApi.yaml_encoder() || ...
+
+    because the left-hand side always evaluates to:
+
+        dynamic(OpenApiSpex.OpenApi.YmlrEncoder)
+
+    type warning found at:
+    │
+ 57 │     OpenApiSpex.OpenApi.yaml_encoder() ||
+    │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    │
+    └─ lib/mix/tasks/openapi.spec.yaml.ex:57: Mix.Tasks.Openapi.Spec.Yaml.encoder/0</pre>
+  </details>
+</article>
+<article class="warning-card fp" id="OpenApiSpex-7" data-kind="likely-fp" data-new="yes">
+  <header>
+    <div>
+      <div class="eyebrow">OpenApiSpex warning 7 · New vs Refine</div>
+      <h3>incompatible types given to Map.get/3:</h3>
+      <p class="loc">└─ lib/open_api_spex/plug/cast_and_validate.ex:159:14: OpenApiSpex.Plug.CastAndValidate.put_operation_id/2</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Same Plug.Conn private-field precision loss in CastAndValidate.put_operation_id/2.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The preceding call clauses ensure the conn has private.open_api_spex shape before this helper is used. The generic Map.get chain loses that struct/map-field information.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as struct-field precision false positive.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">151</span>  def call(_conn, _opts) do</span>
+<span class="line "><span class="ln">152</span>    raise &quot;:open_api_spex was not found under :private. Maybe PutApiSpec was not called before?&quot;</span>
+<span class="line "><span class="ln">153</span>  end</span>
+<span class="line "><span class="ln">154</span></span>
+<span class="line "><span class="ln">155</span>  defp put_operation_id(conn, operation) do</span>
+<span class="line "><span class="ln">156</span>    private_data =</span>
+<span class="line "><span class="ln">157</span>      conn</span>
+<span class="line "><span class="ln">158</span>      |&gt; Map.get(:private)</span>
+<span class="line hit"><span class="ln">159</span>      |&gt; Map.get(:open_api_spex, %{})</span>
+<span class="line "><span class="ln">160</span>      |&gt; Map.put(:operation_id, operation.operationId)</span>
+<span class="line "><span class="ln">161</span></span>
+<span class="line "><span class="ln">162</span>    Plug.Conn.put_private(conn, :open_api_spex, private_data)</span>
+<span class="line "><span class="ln">163</span>  end</span>
+<span class="line "><span class="ln">164</span>end</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: incompatible types given to Map.get/3:
+
+         Map.get(
+           Map.get(
+             conn,
+             :private
+           ),
+           :open_api_spex,
+           %{}
+         )
+
+     given types:
+
+         dynamic() or nil, :open_api_spex, empty_map()
+
+     but expected one of:
+
+         map(), term(), term()
+
+     where &quot;conn&quot; was given the type:
+
+         # type: dynamic(map())
+         # from: lib/open_api_spex/plug/cast_and_validate.ex:158:14
+         Map.get(
+           conn,
+           :private
+         )
+
+     type warning found at:
+     │
+ 159 │       |&gt; Map.get(:open_api_spex, %{})
+     │              ~
+     │
+     └─ lib/open_api_spex/plug/cast_and_validate.ex:159:14: OpenApiSpex.Plug.CastAndValidate.put_operation_id/2</pre>
+  </details>
+</article></section><section class="project" id="MixSBOM"><h2>MixSBOM</h2>
+<article class="warning-card true" id="MixSBOM-1" data-kind="benign-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">MixSBOM warning 1 · Already on Refine</div>
+      <h3>the right-hand side of || will never be executed:</h3>
+      <p class="loc">└─ lib/sbom/cyclonedx/common/enum_helpers.ex:155: SBoM.CycloneDX.Common.EnumHelpers.classification_to_string_xml/1</p>
+    </div>
+    <div class="badges"><span class="badge true">Benign true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>classification_to_string_xml/1 already handles CLASSIFICATION_NULL in the previous clause.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>After the :CLASSIFICATION_NULL clause, every generated classification_to_string/1 mapping for the remaining classification values returns a binary. The || &quot;&quot; fallback is therefore unreachable.</p>
+      <h4>Recommendation</h4>
+      <p>Not a false positive. Safe cleanup: remove the fallback or keep it as defensive redundancy.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">147</span>  @spec classification_to_string(classification()) :: String.t() | nil</span>
+<span class="line "><span class="ln">148</span>  for {enum_value, string_value} &lt;- @classification_mappings do</span>
+<span class="line "><span class="ln">149</span>    def classification_to_string(unquote(enum_value)), do: unquote(string_value)</span>
+<span class="line "><span class="ln">150</span>  end</span>
+<span class="line "><span class="ln">151</span></span>
+<span class="line "><span class="ln">152</span>  # Note: For XML encoding, this returns &quot;&quot; for :CLASSIFICATION_NULL instead of nil</span>
+<span class="line "><span class="ln">153</span>  @spec classification_to_string_xml(classification()) :: String.t()</span>
+<span class="line "><span class="ln">154</span>  def classification_to_string_xml(:CLASSIFICATION_NULL), do: &quot;&quot;</span>
+<span class="line hit"><span class="ln">155</span>  def classification_to_string_xml(type), do: classification_to_string(type) || &quot;&quot;</span>
+<span class="line "><span class="ln">156</span></span>
+<span class="line "><span class="ln">157</span>  @spec scope_to_string(scope() | nil) :: String.t() | nil</span>
+<span class="line "><span class="ln">158</span>  for {enum_value, string_value} &lt;- @scope_mappings do</span>
+<span class="line "><span class="ln">159</span>    def scope_to_string(unquote(enum_value)), do: unquote(string_value)</span>
+<span class="line "><span class="ln">160</span>  end</span>
+<span class="line "><span class="ln">161</span></span>
+<span class="line "><span class="ln">162</span>  def scope_to_string(nil), do: nil</span>
+<span class="line "><span class="ln">163</span></span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the right-hand side of || will never be executed:
+
+         classification_to_string(type) || ...
+
+     because the left-hand side always evaluates to:
+
+         binary()
+
+     where &quot;type&quot; was given the type:
+
+         # type: dynamic(not :CLASSIFICATION_NULL)
+         # from: lib/sbom/cyclonedx/common/enum_helpers.ex:155:36
+         type
+
+     type warning found at:
+     │
+ 155 │   def classification_to_string_xml(type), do: classification_to_string(type) || &quot;&quot;
+     │   ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/sbom/cyclonedx/common/enum_helpers.ex:155: SBoM.CycloneDX.Common.EnumHelpers.classification_to_string_xml/1</pre>
+  </details>
+</article>
+<article class="warning-card ctx" id="MixSBOM-2" data-kind="context-true" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">MixSBOM warning 2 · Already on Refine</div>
+      <h3>the following conditional expression:</h3>
+      <p class="loc">└─ lib/sbom/fetcher/mix_runtime.ex:143: SBoM.Fetcher.MixRuntime.resolve_dep/3</p>
+    </div>
+    <div class="badges"><span class="badge ctx">Context-specific true positive</span><span class="badge confidence">High confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>in_burrito?/0 compiles to false because Burrito.Util is not loaded in this build.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>The module conditionally defines in_burrito?/0 at compile time. Without Burrito.Util, not in_burrito?() is always true, so load_from_app_spec? is always true. In a Burrito standalone build the other branch can matter.</p>
+      <h4>Recommendation</h4>
+      <p>Existing build-environment warning. Not a runtime bug in this artifact.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">135</span></span>
+<span class="line "><span class="ln">136</span>      # Extract metadata using centralized normalization</span>
+<span class="line "><span class="ln">137</span>      metadata = Metadata.from_mix_config(config)</span>
+<span class="line "><span class="ln">138</span></span>
+<span class="line "><span class="ln">139</span>      load_from_app_spec? = not is_system_app(app) or not in_burrito?()</span>
+<span class="line "><span class="ln">140</span></span>
+<span class="line "><span class="ln">141</span>      version =</span>
+<span class="line "><span class="ln">142</span>        config[:version] ||</span>
+<span class="line hit"><span class="ln">143</span>          if load_from_app_spec? do</span>
+<span class="line "><span class="ln">144</span>            get_app_version(app)</span>
+<span class="line "><span class="ln">145</span>          end</span>
+<span class="line "><span class="ln">146</span></span>
+<span class="line "><span class="ln">147</span>      description =</span>
+<span class="line "><span class="ln">148</span>        metadata[:description] ||</span>
+<span class="line "><span class="ln">149</span>          if load_from_app_spec? do</span>
+<span class="line "><span class="ln">150</span>            get_app_description(app)</span>
+<span class="line "><span class="ln">151</span>          end</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">     warning: the following conditional expression:
+
+         load_from_app_spec?
+
+     will always evaluate to:
+
+         dynamic(true)
+
+     where &quot;load_from_app_spec?&quot; was given the type:
+
+         # type: dynamic(true)
+         # from: lib/sbom/fetcher/mix_runtime.ex:139:27
+         load_from_app_spec? =
+           not (
+             {arg1} = {app}
+
+             arg1 === :eex or arg1 === :elixir or arg1 === :ex_unit or arg1 === :iex or arg1 === :logger or
+               arg1 === :mix or
+               (arg1 === :stdlib or arg1 === :common_test or arg1 === :runtime_tools or arg1 === :sasl or
+                  arg1 === :ftp or arg1 === :eldap or arg1 === :dialyzer or arg1 === :megaco or
+                  arg1 === :eunit or arg1 === :wx or arg1 === :edoc or arg1 === :syntax_tools or
+                  arg1 === :crypto or arg1 === :debugger or arg1 === :asn1 or arg1 === :compiler or
+                  arg1 === :et or arg1 === :mnesia or arg1 === :inets or arg1 === :reltool or
+                  arg1 === :tools or arg1 === :os_mon or arg1 === :diameter or arg1 === :snmp or
+                  arg1 === :observer or arg1 === :parsetools or arg1 === :erl_interface or
+                  arg1 === :public_key or arg1 === :erts or arg1 === :kernel or arg1 === :tftp or
+                  arg1 === :odbc or arg1 === :xmerl or arg1 === :ssh or arg1 === :ssl) or arg1 == :hex
+           ) or not in_burrito?()
+
+     type warning found at:
+     │
+ 143 │           if load_from_app_spec? do
+     │           ~~~~~~~~~~~~~~~~~~~~~~~~~
+     │
+     └─ lib/sbom/fetcher/mix_runtime.ex:143: SBoM.Fetcher.MixRuntime.resolve_dep/3</pre>
+  </details>
+</article></section><section class="project" id="AbsintheFederation"><h2>AbsintheFederation</h2>
+<article class="warning-card fp" id="AbsintheFederation-1" data-kind="likely-fp" data-new="no">
+  <header>
+    <div>
+      <div class="eyebrow">AbsintheFederation warning 1 · Already on Refine</div>
+      <h3>incompatible types given to Absinthe.Schema.apply_modifiers/2:</h3>
+      <p class="loc">└─ lib/absinthe/federation/schema.ex:73:24: Absinthe.Federation.Schema.remove_federated_types_pipeline/1</p>
+    </div>
+    <div class="badges"><span class="badge fp">Likely false positive</span><span class="badge confidence">Medium confidence</span></div>
+  </header>
+  <div class="analysis-grid">
+    <section>
+      <h4>Conclusion</h4>
+      <p>Absinthe schemas are modules with generated callback functions, but the checker cannot represent that module protocol precisely.</p>
+      <h4>Why The Warning Appears</h4>
+      <p>Absinthe.Schema.t is a module. use Absinthe.Schema generates functions such as __absinthe_prototype_schema__/0 and __absinthe_pipeline_modifiers__/0. The warning arises around passing the schema module through apply_modifiers/2, whose body depends on generated schema-module callbacks.</p>
+      <h4>Recommendation</h4>
+      <p>Treat as a module-callback/protocol precision false positive, or as a dependency spec mismatch rather than an application bug.</p>
+    </section>
+    <section>
+      <h4>Failed Code</h4>
+      <pre class="code"><span class="line "><span class="ln">65</span>    ])</span>
+<span class="line "><span class="ln">66</span>  end</span>
+<span class="line "><span class="ln">67</span></span>
+<span class="line "><span class="ln">68</span>  @spec remove_federated_types_pipeline(schema :: Absinthe.Schema.t()) :: Absinthe.Pipeline.t()</span>
+<span class="line "><span class="ln">69</span>  def remove_federated_types_pipeline(schema) do</span>
+<span class="line "><span class="ln">70</span>    schema</span>
+<span class="line "><span class="ln">71</span>    |&gt; Absinthe.Pipeline.for_schema(prototype_schema: schema.__absinthe_prototype_schema__())</span>
+<span class="line "><span class="ln">72</span>    |&gt; Absinthe.Pipeline.upto({Absinthe.Phase.Schema.Validation.Result, pass: :final})</span>
+<span class="line hit"><span class="ln">73</span>    |&gt; Absinthe.Schema.apply_modifiers(schema)</span>
+<span class="line "><span class="ln">74</span></span>
+<span class="line "><span class="ln">75</span>    # TODO: Due to an issue found with rendering the SDL we had to revert this functionality</span>
+<span class="line "><span class="ln">76</span>    # https://github.com/DivvyPayHQ/absinthe_federation/issues/28</span>
+<span class="line "><span class="ln">77</span>    # |&gt; Absinthe.Pipeline.without(__MODULE__.Phase.AddFederatedTypes)</span>
+<span class="line "><span class="ln">78</span>    |&gt; Absinthe.Pipeline.insert_before(</span>
+<span class="line "><span class="ln">79</span>      Absinthe.Phase.Schema.ApplyDeclaration,</span>
+<span class="line "><span class="ln">80</span>      __MODULE__.Phase.RemoveResolveReferenceFields</span>
+<span class="line "><span class="ln">81</span>    )</span></pre>
+    </section>
+  </div>
+  <details>
+    <summary>Raw compiler warning</summary>
+    <pre class="raw">    warning: incompatible types given to Absinthe.Schema.apply_modifiers/2:
+
+        Absinthe.Schema.apply_modifiers(
+          Absinthe.Pipeline.upto(
+            Absinthe.Pipeline.for_schema(schema,
+              prototype_schema: schema.__absinthe_prototype_schema__()
+            ),
+            {Absinthe.Phase.Schema.Validation.Result, pass: :final}
+          ),
+          schema
+        )
+
+    given types:
+
+        dynamic(), -dynamic(atom())-
+
+    but expected one of:
+
+        term(), %{..., __absinthe_pipeline_modifiers__: term()}
+
+    where &quot;schema&quot; was given the type:
+
+        # type: dynamic(atom())
+        # from: lib/absinthe/federation/schema.ex:71:62
+        schema.__absinthe_prototype_schema__()
+
+    type warning found at:
+    │
+ 73 │     |&gt; Absinthe.Schema.apply_modifiers(schema)
+    │                        ~
+    │
+    └─ lib/absinthe/federation/schema.ex:73:24: Absinthe.Federation.Schema.remove_federated_types_pipeline/1</pre>
+  </details>
+</article></section>
+  <p class="footer">Generated 2026-05-27 03:37:45 from local perf artifacts. No external network assets are required.</p>
+</main>
+<script>
+const buttons = document.querySelectorAll('[data-filter]');
+const cards = document.querySelectorAll('.warning-card');
+buttons.forEach((button) => {
+  button.addEventListener('click', () => {
+    buttons.forEach((b) => b.classList.remove('active'));
+    button.classList.add('active');
+    const filter = button.dataset.filter;
+    cards.forEach((card) => {
+      const show = filter === 'all' || card.dataset.kind === filter || (filter === 'new' && card.dataset.new === 'yes');
+      card.classList.toggle('hidden', !show);
+    });
+    document.querySelectorAll('.project').forEach((project) => {
+      const visible = [...project.querySelectorAll('.warning-card')].some((card) => !card.classList.contains('hidden'));
+      project.classList.toggle('hidden', !visible);
+    });
+  });
+});
+</script>
+</body>
+</html>
