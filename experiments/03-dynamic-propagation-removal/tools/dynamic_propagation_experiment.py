@@ -63,6 +63,12 @@ PROJECTS = [
         "commit": "c72888d4e1d3f9a7693cc1faf952971216ac1f6a",
     },
     {
+        "name": "Postgrex",
+        "dir": "postgrex",
+        "url": "https://github.com/elixir-ecto/postgrex.git",
+        "commit": "bd059dc01280f2932b6af5f36a5c8942e031ba5d",
+    },
+    {
         "name": "OpenApiSpex",
         "dir": "open_api_spex",
         "url": "https://github.com/open-api-spex/open_api_spex.git",
@@ -95,6 +101,12 @@ PROJECTS = [
         "commit": "bd316cd7b793e4d83b3e3545d506a8b00926dd32",
     },
     {
+        "name": "Flame",
+        "dir": "flame",
+        "url": "https://github.com/phoenixframework/flame.git",
+        "commit": "27b94dafd874cd9747007205d25ee2d81349de07",
+    },
+    {
         "name": "AbsintheFederation",
         "dir": "absinthe_federation",
         "url": "https://github.com/DivvyPayHQ/absinthe_federation.git",
@@ -110,6 +122,7 @@ EXPECTED_PROJECTS = {
     "Credo",
     "Ecto",
     "ExDoc",
+    "Flame",
     "HexPm",
     "Livebook",
     "MixSBOM",
@@ -117,14 +130,15 @@ EXPECTED_PROJECTS = {
     "OpenApiSpex",
     "Phoenix",
     "PhoenixLiveView",
+    "Postgrex",
     "SQL",
     "Spitfire",
 }
 
 EXPECTED_TOTALS = {
     "Refine": 94,
-    "No-dynamic cached deps": 145,
-    "Cached - Refine": 51,
+    "No-dynamic cached deps": 158,
+    "Cached - Refine": 64,
 }
 
 
@@ -172,7 +186,7 @@ def warning_counts(path):
 
 def validate(args):
     comparison_rows = parse_markdown_table(args.comparison)
-    require(len(comparison_rows) == 15, "expected 15 comparison rows")
+    require(len(comparison_rows) == 17, "expected 17 comparison rows")
     require({row["Codebase"] for row in comparison_rows} == EXPECTED_PROJECTS, "project set mismatch")
 
     refine_total = 0

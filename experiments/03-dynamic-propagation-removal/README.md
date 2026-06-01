@@ -20,13 +20,13 @@ dependencies.
 ## Paper result
 
 The paper uses this experiment to show that dynamic propagation is not just an
-implementation convenience. On the selected 15-project corpus, removing dynamic
+implementation convenience. On the selected 17-project corpus, removing dynamic
 propagation changes the project warning total from:
 
 ```text
 94 warnings with the full checker
-145 warnings with dynamic propagation removed
-+51 additional warnings
+158 warnings with dynamic propagation removed
++64 additional warnings
 ```
 
 The table inserted in the paper is archived as `results/paper-table.tex`.
@@ -56,7 +56,9 @@ plus local working-tree changes. That matters because `tools/perf.py` keys the
 dependency sentinel by the Git commit, not by dirty state. The experiment
 therefore ran the removal variant twice: once after forcing dependency sentinel
 invalidation and once with cached dependency sentinels. The project warning
-counts were identical.
+counts were identical. Postgrex and Flame were added by a focused rerun on
+2026-06-01 using the committed removal branch; their cached-deps repeat also
+matched the forced dependency rebuild counts.
 
 Project commits and local compatibility patches are recorded in
 `results/projects.md`.
@@ -100,8 +102,8 @@ cd "$ARTIFACT"
 REPO_ARGS="\
   --repo Blockscout --repo Ash --repo Livebook --repo HexPm --repo Ecto \
   --repo Credo --repo PhoenixLiveView --repo Phoenix --repo MixSBOM \
-  --repo OpenApiSpex --repo ExDoc --repo Nerves --repo Spitfire \
-  --repo SQL --repo AbsintheFederation"
+  --repo Postgrex --repo OpenApiSpex --repo ExDoc --repo Nerves \
+  --repo Spitfire --repo SQL --repo Flame --repo AbsintheFederation"
 
 python3 experiments/03-dynamic-propagation-removal/tools/dynamic_propagation_experiment.py \
   checkout-projects \
@@ -160,15 +162,19 @@ The final comparison should match
   compiler commit.
 - `results/no-dynamic-vs-refine-comparison-20260527.md`: final comparison table.
 - `results/*type-warning-table-20260527.md`: input warning-count tables.
+- `results/postgrex-flame-*-type-warning-table-20260601.md`: focused rerun
+  tables for the two projects added after the original 15-project archive.
 - `results/refine-warnings-20260527.json`: extracted baseline warning blocks.
 - `results/no-dynamic-cached-deps-warnings-20260527.json`: extracted removal
   warning blocks.
 - `results/no-dynamic-cached-deps-warnings-20260527.md`: readable warning-block
   log for the removal variant.
-- `results/type-warning-counting-audit-20260527.html`: local report explaining
-  how type warnings were counted and cross-checked.
-- `results/small-project-warning-audit-20260527.html`: local report reviewing
-  the small-project warning candidates and likely false positives.
+- `results/type-warning-counting-audit-20260527.html`: original local report
+  explaining how type warnings were counted and cross-checked on the initial
+  15-project run.
+- `results/small-project-warning-audit-20260527.html`: original local report
+  reviewing the initial small-project warning candidates and likely false
+  positives.
 - `results/paper-table.tex`: table inserted in the Core Elixir paper.
 
 ## Intentionally not committed
@@ -198,5 +204,5 @@ make reproduce-experiment-03-smoke CONFIRM=0
 Expected output includes:
 
 ```text
-dynamic-propagation removal validation passed: 94 -> 145 type warnings (+51)
+dynamic-propagation removal validation passed: 94 -> 158 type warnings (+64)
 ```

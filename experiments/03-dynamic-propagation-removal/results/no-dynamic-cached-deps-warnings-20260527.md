@@ -1,8 +1,8 @@
 # Type Warning Blocks: no-dynamic cached-deps run
 
-Source log: `results/type-warning-no-dynamic-cached-deps-20260527.log`.
+Source logs: original `results/type-warning-no-dynamic-cached-deps-20260527.log`, extended with the 2026-06-01 Postgrex/Flame focused rerun.
 
-Total extracted type warnings: 145
+Total extracted type warnings: 158
 
 ## AbsintheFederation (1)
 
@@ -3629,6 +3629,35 @@ Total extracted type warnings: 145
      └─ lib/ex_doc/formatter/epub.ex:155:43: ExDoc.Formatter.EPUB.uuid4/0
 ```
 
+## Flame (1)
+
+### Flame #1: └─ lib/flame/fly_backend.ex:312:38: FLAME.FlyBackend.remote_boot/1
+
+- Message: expected "after" timeout given to receive to be an integer:
+
+```text
+     warning: expected "after" timeout given to receive to be an integer:
+
+         remaining_connect_window
+
+     but got type:
+
+         float() or integer()
+
+     where "remaining_connect_window" was given the type:
+
+         # type: float() or integer()
+         # from: lib/flame/fly_backend.ex:295:30
+         remaining_connect_window = state.boot_timeout - req_connect_time
+
+     type warning found at:
+     │
+ 312 │             remaining_connect_window ->
+     │                                      ~
+     │
+     └─ lib/flame/fly_backend.ex:312:38: FLAME.FlyBackend.remote_boot/1
+```
+
 ## HexPm (12)
 
 ### HexPm #1: └─ lib/hexpm_web/controllers/package_controller.ex:216: HexpmWeb.PackageController.access_package/3
@@ -4567,6 +4596,405 @@ Total extracted type warnings: 145
      │          ~
      │
      └─ lib/phoenix_live_view/html_formatter.ex:613:10: Phoenix.LiveView.HTMLFormatter.line_byte_offset/3
+```
+
+## Postgrex (12)
+
+### Postgrex #1: └─ lib/postgrex/messages.ex: Postgrex.Messages.parse/3
+
+- Message: expected an integer in binary size:
+
+```text
+warning: expected an integer in binary size:
+
+    size(^rest_size)
+
+got type:
+
+    float() or integer()
+
+where "rest_size" was given the type:
+
+    # type: float() or integer()
+    # from: lib/postgrex/messages.ex:97:21
+    rest_size = size - 2
+
+└─ lib/postgrex/messages.ex: Postgrex.Messages.parse/3
+```
+
+### Postgrex #2: └─ lib/postgrex/extensions/timestamp.ex:55:42: Postgrex.Extensions.Timestamp.encode_elixir/1
+
+- Message: incompatible types in binary construction:
+
+```text
+    warning: incompatible types in binary construction:
+
+        <<..., secs * 1_000_000 + usec::integer-signed-size(64)>>
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where "secs" was given the type:
+
+        # type: float() or integer()
+        # from: lib/postgrex/extensions/timestamp.ex:54:10
+        secs = gregorian_seconds - 63_113_904_000
+
+    where "usec" was given the type:
+
+        # type: integer()
+        # from: lib/postgrex/extensions/timestamp.ex:55:36
+        secs * 1_000_000 + usec
+
+    type warning found at:
+    │
+ 55 │     <<8::int32(), secs * 1_000_000 + usec::int64()>>
+    │                                          ~
+    │
+    └─ lib/postgrex/extensions/timestamp.ex:55:42: Postgrex.Extensions.Timestamp.encode_elixir/1
+```
+
+### Postgrex #3: └─ lib/postgrex/extensions/timetz.ex:47:70: Postgrex.Extensions.TimeTZ.encode_elixir/1
+
+- Message: incompatible types in binary construction:
+
+```text
+    warning: incompatible types in binary construction:
+
+        <<..., :calendar.time_to_seconds(time) * 1_000_000 + usec::integer-signed-size(64), ...>>
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where "time" was given the type:
+
+        # type: dynamic({integer(), integer(), integer()})
+        # from: lib/postgrex/extensions/timetz.ex:46:10
+        time = {hour, min, sec}
+
+    where "usec" was given the types:
+
+        # type: integer()
+        # from: lib/postgrex/extensions/timetz.ex:44:21
+        %Time{hour: hour, minute: min, second: sec, microsecond: {usec, _}}
+
+        # type: integer()
+        # from: lib/postgrex/extensions/timetz.ex:45
+        is_integer(usec)
+
+    type warning found at:
+    │
+ 47 │     <<12::int32(), :calendar.time_to_seconds(time) * 1_000_000 + usec::int64(), 0::int32()>>
+    │                                                                      ~
+    │
+    └─ lib/postgrex/extensions/timetz.ex:47:70: Postgrex.Extensions.TimeTZ.encode_elixir/1
+```
+
+### Postgrex #4: └─ lib/postgrex/extensions/range.ex:93:34: Postgrex.Extensions.Range.encode/3
+
+- Message: incompatible types in binary construction:
+
+```text
+    warning: incompatible types in binary construction:
+
+        <<IO.iodata_length(data) + 1::integer-signed-size(32)>>
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where "data" was given the type:
+
+        # type: dynamic(not atom())
+        # from: lib/postgrex/extensions/range.ex:74:19
+        {flags, data} =
+          if is_atom(upper) do
+            {Bitwise.bor(flags, 16), data}
+          else
+            {flags, [data | upper]}
+          end
+
+    type warning found at:
+    │
+ 93 │     [<<IO.iodata_length(data) + 1::int32()>>, flags | data]
+    │                                  ~
+    │
+    └─ lib/postgrex/extensions/range.ex:93:34: Postgrex.Extensions.Range.encode/3
+```
+
+### Postgrex #5: └─ lib/postgrex/extensions/time.ex:33:69: Postgrex.Extensions.Time.encode_elixir/1
+
+- Message: incompatible types in binary construction:
+
+```text
+    warning: incompatible types in binary construction:
+
+        <<..., :calendar.time_to_seconds(time) * 1_000_000 + usec::integer-signed-size(64)>>
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where "time" was given the type:
+
+        # type: dynamic({integer(), integer(), integer()})
+        # from: lib/postgrex/extensions/time.ex:32:10
+        time = {hour, min, sec}
+
+    where "usec" was given the types:
+
+        # type: integer()
+        # from: lib/postgrex/extensions/time.ex:30:21
+        %Time{hour: hour, minute: min, second: sec, microsecond: {usec, _}}
+
+        # type: integer()
+        # from: lib/postgrex/extensions/time.ex:31
+        is_integer(usec)
+
+    type warning found at:
+    │
+ 33 │     <<8::int32(), :calendar.time_to_seconds(time) * 1_000_000 + usec::int64()>>
+    │                                                                     ~
+    │
+    └─ lib/postgrex/extensions/time.ex:33:69: Postgrex.Extensions.Time.encode_elixir/1
+```
+
+### Postgrex #6: └─ lib/postgrex/messages.ex:269:21: Postgrex.Messages.encode_msg/1
+
+- Message: incompatible types in binary construction:
+
+```text
+     warning: incompatible types in binary construction:
+
+         <<size::integer-signed-size(32)>>
+
+     got type:
+
+         float() or integer()
+
+     but expected type:
+
+         integer()
+
+     where "size" was given the type:
+
+         # type: float() or integer()
+         # from: lib/postgrex/messages.ex:262:10
+         size = IO.iodata_length(data) + 4
+
+     type warning found at:
+     │
+ 269 │       [first, <<size::int32()>>, data]
+     │                     ~
+     │
+     └─ lib/postgrex/messages.ex:269:21: Postgrex.Messages.encode_msg/1
+```
+
+### Postgrex #7: └─ lib/postgrex/messages.ex:271:14: Postgrex.Messages.encode_msg/1
+
+- Message: incompatible types in binary construction:
+
+```text
+     warning: incompatible types in binary construction:
+
+         <<size::integer-signed-size(32)>>
+
+     got type:
+
+         float() or integer()
+
+     but expected type:
+
+         integer()
+
+     where "size" was given the type:
+
+         # type: float() or integer()
+         # from: lib/postgrex/messages.ex:262:10
+         size = IO.iodata_length(data) + 4
+
+     type warning found at:
+     │
+ 271 │       [<<size::int32()>>, data]
+     │              ~
+     │
+     └─ lib/postgrex/messages.ex:271:14: Postgrex.Messages.encode_msg/1
+```
+
+### Postgrex #8: └─ lib/postgrex/extensions/date.ex:32:59: Postgrex.Extensions.Date.encode_elixir/1
+
+- Message: incompatible types in binary construction:
+
+```text
+    warning: incompatible types in binary construction:
+
+        <<..., Date.to_gregorian_days(date) - 730_485::integer-signed-size(32)>>
+
+    got type:
+
+        float() or integer()
+
+    but expected type:
+
+        integer()
+
+    where "date" was given the type:
+
+        # type: dynamic(
+          %{..., calendar: Calendar.ISO, day: integer(), month: integer(), year: integer()} or
+            %{..., calendar: atom() and not Calendar.ISO, day: term(), month: term(), year: term()}
+        )
+        # from: lib/postgrex/extensions/date.ex:32:24
+        Date.to_gregorian_days(date)
+
+    type warning found at:
+    │
+ 32 │     <<4::int32(), Date.to_gregorian_days(date) - @gd_epoch::int32()>>
+    │                                                           ~
+    │
+    └─ lib/postgrex/extensions/date.ex:32:59: Postgrex.Extensions.Date.encode_elixir/1
+```
+
+### Postgrex #9: └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Interval"/1
+
+- Message: incompatible types in binary construction:
+
+```text
+      warning: incompatible types in binary construction:
+
+          <<..., microseconds::integer-signed-size(64), ...>>
+
+      got type:
+
+          float() or integer()
+
+      but expected type:
+
+          integer()
+
+      where "microseconds" (context Postgrex.Extensions.Interval) was given the type:
+
+          # type: float() or integer()
+          # from: lib/postgrex/type_module.ex:1045
+          microseconds = 1_000_000 * seconds + microseconds
+
+      type warning found at:
+      │
+ 1045 │     Module.create(module, quoted, Macro.Env.location(__ENV__))
+      │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Interval"/1
+```
+
+### Postgrex #10: └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Interval"/1
+
+- Message: incompatible types in binary construction:
+
+```text
+      warning: incompatible types in binary construction:
+
+          <<..., microseconds::integer-signed-size(64), ...>>
+
+      got type:
+
+          float() or integer()
+
+      but expected type:
+
+          integer()
+
+      where "microseconds" (context Postgrex.Extensions.Interval) was given the type:
+
+          # type: float() or integer()
+          # from: lib/postgrex/type_module.ex:1045
+          microseconds = 1_000_000 * (3600 * hours + 60 * minutes + seconds) + microseconds
+
+      type warning found at:
+      │
+ 1045 │     Module.create(module, quoted, Macro.Env.location(__ENV__))
+      │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Interval"/1
+```
+
+### Postgrex #11: └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.JSONB"/1
+
+- Message: incompatible types in binary construction:
+
+```text
+      warning: incompatible types in binary construction:
+
+          <<IO.iodata_length(data) + 1::integer-signed-size(32), ...>>
+
+      got type:
+
+          float() or integer()
+
+      but expected type:
+
+          integer()
+
+      where "data" (context Postgrex.Extensions.JSONB) was given the type:
+
+          # type: dynamic()
+          # from: lib/postgrex/type_module.ex:1045
+          data = Jason.encode_to_iodata!(map)
+
+      type warning found at:
+      │
+ 1045 │     Module.create(module, quoted, Macro.Env.location(__ENV__))
+      │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.JSONB"/1
+```
+
+### Postgrex #12: └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Record"/3
+
+- Message: incompatible types in binary construction:
+
+```text
+      warning: incompatible types in binary construction:
+
+          <<IO.iodata_length(data) + 4::integer-signed-size(32), ...>>
+
+      got type:
+
+          float() or integer()
+
+      but expected type:
+
+          integer()
+
+      where "data" (context Postgrex.Extensions.Record) was given the type:
+
+          # type: dynamic()
+          # from: lib/postgrex/type_module.ex:1045
+          data = encode_tuple(tuple, oids, types)
+
+      type warning found at:
+      │
+ 1045 │     Module.create(module, quoted, Macro.Env.location(__ENV__))
+      │     ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+      │
+      └─ lib/postgrex/type_module.ex:1045: Postgrex.DefaultTypes."Elixir.Postgrex.Extensions.Record"/3
 ```
 
 ## SQL (11)
