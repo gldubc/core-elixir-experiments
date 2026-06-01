@@ -1,0 +1,72 @@
+From 380aacbb25c730e736263196eaf476c9b8a4a982 Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 23:55:39 +0200
+Subject: [PATCH 08/12] Revise Elixir nesting-condition benchmark
+
+
+diff --git a/Elixir/README.md b/Elixir/README.md
+index a56dc32..3c4c1e9 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -78,6 +78,8 @@ The `connectives` disjunction failure uses `String.length(x) + x` instead of `x
+ 
+ The `alias` benchmark bounds the input with a guard before assigning `y = is_binary(x)`. A direct `if is_binary(x)` refines `x` enough to reject `x + 1`, but using the saved boolean `y` does not refine `x`, so the failure case still compiles.
+ 
++The `nesting_condition` benchmark also bounds its inputs first. Elixir propagates the facts from the inner conditional to the outer body; the failure witness uses `String.length(x) + x` to make the unclear type of `x` observable under Elixir's dynamic-union compatibility.
++
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+ 
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+index 38bd387..466b6c5 100644
+--- a/Elixir/main.ex
++++ b/Elixir/main.ex
+@@ -228,7 +228,8 @@ end
+ ## Example nesting_condition
+ ## success
+ defmodule IfTBenchmarkElixir.NestingConditionSuccess do
+-  def f(x, y) do
++  def f(x, y)
++      when (is_integer(x) or is_binary(x)) and (is_binary(y) or is_integer(y)) do
+     if if(is_integer(x), do: is_binary(y), else: false) do
+       x + String.length(y)
+     else
+@@ -239,9 +240,10 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.NestingConditionFailure do
+-  def f(x, y) do
++  def f(x, y)
++      when (is_integer(x) or is_binary(x)) and (is_binary(y) or is_integer(y)) do
+     if if(is_integer(x), do: is_binary(y), else: is_binary(y)) do
+-      x + String.length(y)
++      String.length(x) + x
+     else
+       0
+     end
+diff --git a/README.md b/README.md
+index d07fad7..2863b6d 100644
+--- a/README.md
++++ b/README.md
+@@ -542,7 +542,7 @@ For language details: [SETUP.md](./SETUP.md)
+ | tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+-| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | x      |
++| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
+ | merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+diff --git a/results-core.md b/results-core.md
+index 06c609a..70640a3 100644
+--- a/results-core.md
++++ b/results-core.md
+@@ -8,7 +8,7 @@
+ | tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+-| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | x      |
++| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
+ | merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |

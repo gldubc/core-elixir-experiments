@@ -1,0 +1,47 @@
+From f620447abdfb86fd3e6463460c2d287097bb2541 Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 20:58:04 +0200
+Subject: [PATCH 07/12] Sharpen Elixir alias benchmark
+
+
+diff --git a/Elixir/README.md b/Elixir/README.md
+index b1da349..a56dc32 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -76,6 +76,8 @@ Container and guard-heavy cases are direct as Elixir programs. Predicate-annotat
+ 
+ The `connectives` disjunction failure uses `String.length(x) + x` instead of `x + 1`. Guard refinements in Elixir produce dynamic unions, so `x + 1` is compatible with `dynamic(binary() or integer())` through the integer alternative; the replacement keeps the string/number vocabulary while requiring the disjunctively refined value to be used inconsistently.
+ 
++The `alias` benchmark bounds the input with a guard before assigning `y = is_binary(x)`. A direct `if is_binary(x)` refines `x` enough to reject `x + 1`, but using the saved boolean `y` does not refine `x`, so the failure case still compiles.
++
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+ 
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+index 498fa28..38bd387 100644
+--- a/Elixir/main.ex
++++ b/Elixir/main.ex
+@@ -201,20 +201,20 @@ end
+ ## Example alias
+ ## success
+ defmodule IfTBenchmarkElixir.AliasSuccess do
+-  def f(x) do
++  def f(x) when is_binary(x) or is_integer(x) do
+     y = is_binary(x)
+ 
+     if y do
+       String.length(x)
+     else
+-      x
++      x + 1
+     end
+   end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.AliasFailure do
+-  def f(x) do
++  def f(x) when is_binary(x) or is_integer(x) do
+     y = is_binary(x)
+ 
+     if y do

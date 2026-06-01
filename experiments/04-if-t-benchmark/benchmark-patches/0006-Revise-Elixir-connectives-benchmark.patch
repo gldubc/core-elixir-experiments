@@ -1,0 +1,102 @@
+From 4303dbaee8ebeac6802a308606cafe8644704b93 Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 20:32:59 +0200
+Subject: [PATCH 06/12] Revise Elixir connectives benchmark
+
+
+diff --git a/Elixir/README.md b/Elixir/README.md
+index 05c1fda..b1da349 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -74,6 +74,8 @@ The benchmark scenarios are expressible as code. Some faithful negative cases em
+ 
+ Container and guard-heavy cases are direct as Elixir programs. Predicate-annotation-specific cases are only approximated because Elixir has ordinary boolean predicates rather than typed predicate annotations.
+ 
++The `connectives` disjunction failure uses `String.length(x) + x` instead of `x + 1`. Guard refinements in Elixir produce dynamic unions, so `x + 1` is compatible with `dynamic(binary() or integer())` through the integer alternative; the replacement keeps the string/number vocabulary while requiring the disjunctively refined value to be used inconsistently.
++
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+ 
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+index 896361e..498fa28 100644
+--- a/Elixir/main.ex
++++ b/Elixir/main.ex
+@@ -57,28 +57,38 @@ end
+ ## Example connectives
+ ## success
+ defmodule IfTBenchmarkElixir.ConnectivesSuccess do
+-  def f(x) do
+-    if IfTBenchmarkElixir.Helpers.binary_or_integer?(x) and not is_boolean(x) do
+-      if is_binary(x) do
+-        String.length(x)
+-      else
+-        x + 1
+-      end
+-    else
+-      0
++  def f(x) when is_binary(x) or is_integer(x) do
++    if not is_integer(x), do: String.length(x), else: 0
++  end
++
++  def g(x) do
++    case x do
++      x when is_binary(x) or is_integer(x) -> f(x)
++      _ -> 0
+     end
+   end
++
++  def h(x) when is_binary(x) or is_integer(x) or is_boolean(x) do
++    if not is_boolean(x) and not is_integer(x), do: String.length(x), else: 0
++  end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.ConnectivesFailure do
+-  def f(x) do
+-    if IfTBenchmarkElixir.Helpers.binary_or_integer?(x) and not is_boolean(x) do
+-      x + 1
+-    else
+-      0
++  def f(x) when is_binary(x) or is_integer(x) do
++    if not is_integer(x), do: x + 1, else: 0
++  end
++
++  def g(x) do
++    case x do
++      x when is_binary(x) or is_integer(x) -> String.length(x) + x
++      _ -> 0
+     end
+   end
++
++  def h(x) when is_binary(x) or is_integer(x) or is_boolean(x) do
++    if not is_boolean(x) and not is_integer(x), do: x + 1, else: 0
++  end
+ end
+ 
+ ## Example nesting_body
+diff --git a/README.md b/README.md
+index 5235062..d07fad7 100644
+--- a/README.md
++++ b/README.md
+@@ -536,7 +536,7 @@ For language details: [SETUP.md](./SETUP.md)
+ |:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
+ | positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+-| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | x      |
++| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | O      |
+ | nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
+ | tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+diff --git a/results-core.md b/results-core.md
+index cbd5484..06c609a 100644
+--- a/results-core.md
++++ b/results-core.md
+@@ -2,7 +2,7 @@
+ |:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
+ | positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+-| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | x      |
++| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | O      |
+ | nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
+ | tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |

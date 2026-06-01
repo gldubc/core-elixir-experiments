@@ -1,0 +1,1008 @@
+From e25b30a529d5196d8cf01e3fe6b1b5a9cd88b744 Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Mon, 1 Jun 2026 13:39:52 +0200
+Subject: [PATCH 12/12] Port If-T benchmark to annotated Elixir
+
+
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 0105fa6..46ddf98 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -51,6 +51,11 @@ All the test cases should lie in one single code file. When these test cases are
+ 
+ Here we use `#` as the comment character as an example. This file, when checked, will be split into multiple temporary files, each containing one test case. For example, the above file will be split into two files, one containing the test case for `Example benchmark_item_name` and the other containing the test case for `Example another_benchmark_item_name`. Both of them have the common beginning and ending code before and after their test cases.
+ 
++If a single failure block contains multiple independent negative witnesses, mark
++them with `## subcase name`. The benchmark will compile each marked failure
++subcase separately and require all of them to be rejected for the benchmark item
++to pass. Lines before the first `subcase` marker are shared by every subcase.
++
+ #### Implement `_benchmark.rkt`
+ 
+ The ifT-benchmark is designed to make it available that the test cases for each type checker can be checked on its own, and also all the test cases for all type checkers can be checked together. To achieve the former, you need to implement a `_benchmark.rkt` file in the new directory, which defines several important values and calls the `run-benchmark-item` function. The following is an example of the `_benchmark.rkt` file:
+@@ -96,4 +101,3 @@ Finally, when the test cases for the new type checker are ready, create a pull r
+ * Ideally, run the toplevel `main.rkt` to generate a full results table for the core benchmark and the example programs (see [SETUP.md](./SETUP.md#quick-run-commands)). Post these tables in a comment on the pull request.
+ * Alternatively, post just the results for your implementation. We can add the column to the main `README.md` file.
+ 
+-
+diff --git a/Elixir/README.md b/Elixir/README.md
+index ec727cb..838f22d 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -10,7 +10,7 @@ Elixir is a dynamic language that compiles to BEAM.
+ * Implementation: [./main.ex](./main.ex)
+ * Raw command to run the benchmark: `mix compile --warnings-as-errors --force` (through [./checker.exs](./checker.exs), which makes Mix load from the selected Elixir checkout)
+ * Driver commands from the repository root: `racket main.rkt elixir` and `racket main.rkt --examples elixir`
+-* Reported compiler: `/Users/gldubc/Code/research/elixir/main/bin/elixir`, commit `e17cb856a0af0ea327c8bf57c1de83219f4e559e` (`Elixir 1.21.0-dev`)
++* Reported compiler: `/Users/gldubc/Code/research/elixir/worktrees/typespec-translation/bin/elixir`, commit `3684a541ed2ce9f83cd74fd46a7bae69081f017b` (`Elixir 1.21.0-dev`)
+ 
+ #### Type System Basics
+ 
+@@ -19,7 +19,11 @@ Elixir is a dynamic language that compiles to BEAM.
+ 
+ * Top = `term()`
+ * Bottom = `none()`
+-* Dynamic = Elixir is dynamically typed
++* Dynamic = `dynamic()` in the research type-form syntax
++
++The benchmark uses `term()` for the If-T pseudocode's `Top`. It does not use
++`dynamic()` as a synonym for `Top`, because `dynamic()` represents gradual
++uncertainty and can make otherwise invalid operations type-compatible.
+ 
+ 
+ > Q. What base types does this implementation use? Why?
+@@ -45,7 +49,8 @@ Runtime predicates such as `is_integer/1`, `is_binary/1`, and `is_map/1`.
+ 
+ > Q. Are there other forms of type test? If so, explain.
+ 
+-Pattern matching and guards in function heads and conditionals.
++Pattern matching, guards in function heads and conditionals, and the experimental
++`@assert_type_form` annotations in the `typespec-translation` fork.
+ 
+ 
+ > Q. How do type casts work in this language?
+@@ -55,12 +60,26 @@ N/A. Elixir does not have static casts in the same sense as gradual typed langua
+ 
+ > Q. What is the syntax for a symmetric (2-way) type-narrowing predicate?
+ 
+-N/A. There is no built-in predicate annotation syntax like `x is T`.
++In the `typespec-translation` fork, a symmetric predicate can be expressed as an
++ordinary function with an asserted type form. For example:
++
++```elixir
++@assert_type_form (binary() -> true) and (not binary() -> false)
++def binary_value?(x) when is_binary(x), do: true
++def binary_value?(x) when not is_binary(x), do: false
++```
+ 
+ 
+ > Q. If the language supports other type-narrowing predicates, describe them below.
+ 
+-N/A.
++One-way predicates can be expressed by returning `boolean()` on the positive
++domain and `false` outside it. For example:
++
++```elixir
++@assert_type_form (integer() -> boolean()) and (not integer() -> false)
++def positive_integer?(x) when is_integer(x), do: x > 0
++def positive_integer?(x) when not is_integer(x), do: false
++```
+ 
+ 
+ #### Benchmark Details
+@@ -72,19 +91,32 @@ The benchmark scenarios are expressible as code. Some faithful negative cases em
+ 
+ > Q. Are any benchmarks expressed particularly well, or particularly poorly? Explain.
+ 
+-Container and guard-heavy cases are direct as Elixir programs. Predicate-annotation-specific cases are only approximated because Elixir has ordinary boolean predicates rather than typed predicate annotations.
+-
+-The `connectives` disjunction failure uses `String.length(x) + x` instead of `x + 1`. Guard refinements in Elixir produce dynamic unions, so `x + 1` is compatible with `dynamic(binary() or integer())` through the integer alternative; the replacement keeps the string/number vocabulary while requiring the disjunctively refined value to be used inconsistently.
++The current version favors fidelity to the If-T pseudocode over preserving
++positive benchmark scores. The Elixir implementation uses `term()` for `Top`,
++keeps direct `if` forms where the pseudocode uses conditionals, and uses
++`byte_size/1` for binary-length witnesses because `String.length/1` is not
++currently typed by this checker.
+ 
+-The `alias` benchmark bounds the input with a guard before assigning `y = is_binary(x)`. A direct `if is_binary(x)` refines `x` enough to reject `x + 1`, but using the saved boolean `y` does not refine `x`, so the failure case still compiles.
++Union inputs are written as strict unions, for example `binary() or integer()`.
++Predicate-annotation-specific cases use `@assert_type_form`, but helper
++functions are defined locally in the benchmark modules to match the structure of
++the pseudocode.
+ 
+-The `nesting_condition` benchmark also bounds its inputs first. Elixir propagates the facts from the inner conditional to the outer body; the failure witness uses `String.length(x) + x` to make the unclear type of `x` observable under Elixir's dynamic-union compatibility.
++The `connectives` case uses an Elixir guard clause for the disjunctive test.
++This keeps the single `is_binary(x) or is_integer(x)` guard while using the
++native place where Elixir propagates guard information into a function body.
+ 
+-The `merge_with_union` failure uses `String.length(y) + y` after the merge. This keeps the merged binary/integer value visible while avoiding the misleading `y + 1`, which is compatible with the integer alternative of `dynamic(binary() or integer())`.
++The `merge_with_union` case uses a single `case` branch with an `or` guard and
++then merges the branch result into `y`. The failure witness is the direct
++post-merge use `y + 1`.
+ 
+-The `predicate_2way` benchmark uses `defguard` and a `case` guard. Calling an ordinary helper function in `if` does not refine the argument, but a custom guard in guard position is expanded to the underlying type test and refines both the matching and fall-through cases.
++With asserted function bodies checked statically by the `typespec-translation`
++fork, the remaining core miss is `alias`.
+ 
+-The `predicate_1way` benchmark also uses `defguard` in guard position. The positive branch refines to integer; the failure branch uses `String.length(x) + x` because the fall-through value is still broad and a bare `String.length(x)` is compatible with the binary alternative of the dynamic union.
++The `alias` benchmark uses `term()` as the Elixir counterpart of the original
++top-typed input. The success case binds `y = is_binary(x)` and then branches on
++`y`; the failure case includes both misuse under the saved predicate and the
++updated-alias shape where `y` is rebound before the branch.
+ 
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+@@ -96,12 +128,23 @@ Moderately direct, with adaptations to Elixir idioms.
+ 
+ > Q. Are any examples inexpressible? Why?
+ 
+-No, but the faithful negative examples currently compile without type warnings.
++No. The advanced examples are expressible as Elixir code, although some type
++features from the pseudocode are approximated because the current annotation
++syntax does not express parametric type predicates, type subtraction, JSON, or
++recursive predicate types directly.
+ 
+ 
+ > Q. Are any examples expressed particularly well, or particularly poorly? Explain.
+ 
+-`flatten` and `rainfall` map directly to recursive/iterative Elixir style.
++`filter`, `flatten`, and `tree_node` are still misses. In the current run, their
++success halves are accepted, but their failure halves are accepted too. `filter`
++is a concrete instantiation of the polymorphic pseudocode, but the checker does
++not currently reject the unfiltered branch through `Enum.reduce/3`. `flatten`
++uses `term()` input and a list return type, which is closer to "takes anything"
++than the earlier integer-only nested-list witness but cannot express the
++original type subtraction. `tree_node` follows the nested structural checks
++directly but lacks a recursive predicate annotation. `rainfall` now produces the
++expected result.
+ 
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+diff --git a/Elixir/examples.ex b/Elixir/examples.ex
+index bf31322..3dd9d45 100644
+--- a/Elixir/examples.ex
++++ b/Elixir/examples.ex
+@@ -1,23 +1,14 @@
+-defmodule IfTBenchmarkElixir.ExampleHelpers do
+-  def is_integer_predicate(x), do: is_integer(x)
+-
+-  def tree_node?({value, children}) when is_integer(value) and is_list(children) do
+-    Enum.all?(children, &tree_node?/1)
+-  end
+-
+-  def tree_node?(_), do: false
+-end
+-
+ ### Code:
+ ## Example filter
+ ## success
+ defmodule IfTBenchmarkElixir.FilterSuccess do
+-  def run(list, predicate) do
+-    Enum.reduce(list, [], fn element, acc ->
++  @assert_type_form ((integer() -> true) and (not integer() -> false), [binary() or integer()] -> [integer()])
++  def run(predicate, list) do
++    Enum.reduce(list, [], fn element, result ->
+       if predicate.(element) do
+-        [element | acc]
++        [element | result]
+       else
+-        acc
++        result
+       end
+     end)
+   end
+@@ -25,12 +16,13 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.FilterFailure do
+-  def run(list, predicate) do
+-    Enum.reduce(list, [], fn element, acc ->
++  @assert_type_form ((integer() -> true) and (not integer() -> false), [binary() or integer()] -> [integer()])
++  def run(predicate, list) do
++    Enum.reduce(list, [], fn element, result ->
+       if predicate.(element) do
+-        [element | acc]
++        [element | result]
+       else
+-        [element | acc]
++        [element | result]
+       end
+     end)
+   end
+@@ -39,41 +31,76 @@ end
+ ## Example flatten
+ ## success
+ defmodule IfTBenchmarkElixir.FlattenSuccess do
+-  def run([]), do: []
+-  def run([head | tail]), do: run(head) ++ run(tail)
+-  def run(value), do: [value]
++  @assert_type_form (term() -> [term()])
++  def run(x) do
++    cond do
++      x == [] -> []
++      is_list(x) -> run(hd(x)) ++ run(tl(x))
++      true -> [x]
++    end
++  end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.FlattenFailure do
+-  def run([]), do: []
+-  def run([head | tail]), do: run(head) ++ run(tail)
+-  def run(value), do: value
++  @assert_type_form (term() -> [term()])
++  def run(x) do
++    cond do
++      x == [] -> []
++      is_list(x) -> run(hd(x)) ++ run(tl(x))
++      true -> x
++    end
++  end
+ end
+ 
+ ## Example tree_node
+ ## success
+ defmodule IfTBenchmarkElixir.TreeNodeSuccess do
+-  def run(node), do: IfTBenchmarkElixir.ExampleHelpers.tree_node?(node)
++  def run(node) do
++    if not (is_tuple(node) and tuple_size(node) == 2) do
++      false
++    else
++      if not is_integer(elem(node, 0)) do
++        false
++      else
++        if not is_list(elem(node, 1)) do
++          false
++        else
++          Enum.all?(elem(node, 1), &run/1)
++        end
++      end
++    end
++  end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.TreeNodeFailure do
+-  def tree_node?({value, children}) when is_integer(value) and is_list(children) do
+-    true
++  def run(node) do
++    if not (is_tuple(node) and tuple_size(node) == 2) do
++      false
++    else
++      if not is_integer(elem(node, 0)) do
++        false
++      else
++        if not is_list(elem(node, 1)) do
++          false
++        else
++          true
++        end
++      end
++    end
+   end
+-
+-  def tree_node?(_), do: false
+ end
+ 
+ ## Example rainfall
+ ## success
+ defmodule IfTBenchmarkElixir.RainfallSuccess do
+-  def run(weather_reports) when is_list(weather_reports) do
++  @assert_type_form ([term()] -> integer() or float())
++  def run(weather_reports) do
+     {total, count} =
+-      Enum.reduce(weather_reports, {0.0, 0}, fn day, {total, count} ->
+-        if is_map(day) and Map.has_key?(day, :rainfall) do
+-          value = Map.get(day, :rainfall)
++      Enum.reduce(weather_reports, {0, 0}, fn day, {total, count} ->
++        if is_map(day) and Map.has_key?(day, "rainfall") do
++          value = Map.get(day, "rainfall")
+ 
+           if is_number(value) and value >= 0 and value <= 999 do
+             {total + value, count + 1}
+@@ -95,14 +122,22 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.RainfallFailure do
+-  def run(weather_reports) when is_list(weather_reports) do
+-    Enum.reduce(weather_reports, 0.0, fn day, total ->
+-      if is_map(day) and Map.has_key?(day, :rainfall) do
+-        value = Map.get(day, :rainfall)
+-        total + value
+-      else
+-        total
+-      end
+-    end)
++  @assert_type_form ([term()] -> integer() or float())
++  def run(weather_reports) do
++    {total, count} =
++      Enum.reduce(weather_reports, {0, 0}, fn day, {total, count} ->
++        if is_map(day) and Map.has_key?(day, "rainfall") do
++          value = Map.get(day, "rainfall")
++          {total + value, count + 1}
++        else
++          {total, count}
++        end
++      end)
++
++    if count > 0 do
++      total / count
++    else
++      0
++    end
+   end
+ end
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+index fa2360b..b1d5ccb 100644
+--- a/Elixir/main.ex
++++ b/Elixir/main.ex
+@@ -1,19 +1,11 @@
+-defmodule IfTBenchmarkElixir.Helpers do
+-  def positive_integer?(x), do: is_integer(x) and x > 0
+-
+-  def binary_or_integer?(x), do: is_binary(x) or is_integer(x)
+-
+-  def integer_value?(x) when is_integer(x), do: true
+-  def integer_value?(_), do: false
+-end
+-
+ ### Code:
+ ## Example positive
+ ## success
+ defmodule IfTBenchmarkElixir.PositiveSuccess do
++  @assert_type_form (term() -> term())
+   def f(x) do
+     if is_binary(x) do
+-      String.length(x)
++      byte_size(x)
+     else
+       x
+     end
+@@ -22,6 +14,7 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.PositiveFailure do
++  @assert_type_form (term() -> term())
+   def f(x) do
+     if is_binary(x) do
+       x + 1
+@@ -34,9 +27,10 @@ end
+ ## Example negative
+ ## success
+ defmodule IfTBenchmarkElixir.NegativeSuccess do
+-  def f(x) when is_binary(x) or is_integer(x) do
++  @assert_type_form (binary() or integer() -> integer())
++  def f(x) do
+     if is_binary(x) do
+-      String.length(x)
++      byte_size(x)
+     else
+       x + 1
+     end
+@@ -45,9 +39,10 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.NegativeFailure do
+-  def f(x) when is_binary(x) or is_boolean(x) do
++  @assert_type_form (binary() or integer() or boolean() -> integer())
++  def f(x) do
+     if is_binary(x) do
+-      String.length(x)
++      byte_size(x)
+     else
+       x + 1
+     end
+@@ -57,36 +52,41 @@ end
+ ## Example connectives
+ ## success
+ defmodule IfTBenchmarkElixir.ConnectivesSuccess do
+-  def f(x) when is_binary(x) or is_integer(x) do
+-    if not is_integer(x), do: String.length(x), else: 0
++  @assert_type_form (binary() or integer() -> integer())
++  def f(x) do
++    if not is_integer(x), do: byte_size(x), else: 0
+   end
+ 
+-  def g(x) do
+-    case x do
+-      x when is_binary(x) or is_integer(x) -> f(x)
+-      _ -> 0
+-    end
+-  end
++  @assert_type_form (term() -> integer())
++  def g(x) when is_binary(x) or is_integer(x), do: f(x)
++  def g(_x), do: 0
+ 
+-  def h(x) when is_binary(x) or is_integer(x) or is_boolean(x) do
+-    if not is_boolean(x) and not is_integer(x), do: String.length(x), else: 0
++  @assert_type_form (binary() or integer() or boolean() -> integer())
++  def h(x) do
++    if not is_boolean(x) and not is_integer(x), do: byte_size(x), else: 0
+   end
+ end
+ 
+ ## failure
++## subcase f
+ defmodule IfTBenchmarkElixir.ConnectivesFailure do
+-  def f(x) when is_binary(x) or is_integer(x) do
++  @assert_type_form (binary() or integer() -> integer())
++  def f(x) do
+     if not is_integer(x), do: x + 1, else: 0
+   end
++end
+ 
+-  def g(x) do
+-    case x do
+-      x when is_binary(x) or is_integer(x) -> String.length(x) + x
+-      _ -> 0
+-    end
+-  end
++## subcase g
++defmodule IfTBenchmarkElixir.ConnectivesFailure do
++  @assert_type_form (term() -> integer())
++  def g(x) when is_binary(x) or is_integer(x), do: x + 1
++  def g(_x), do: 0
++end
+ 
+-  def h(x) when is_binary(x) or is_integer(x) or is_boolean(x) do
++## subcase h
++defmodule IfTBenchmarkElixir.ConnectivesFailure do
++  @assert_type_form (binary() or integer() or boolean() -> integer())
++  def h(x) do
+     if not is_boolean(x) and not is_integer(x), do: x + 1, else: 0
+   end
+ end
+@@ -94,6 +94,7 @@ end
+ ## Example nesting_body
+ ## success
+ defmodule IfTBenchmarkElixir.NestingBodySuccess do
++  @assert_type_form (binary() or integer() or boolean() -> integer())
+   def f(x) do
+     if not is_binary(x) do
+       if not is_boolean(x) do
+@@ -109,15 +110,16 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.NestingBodyFailure do
++  @assert_type_form (binary() or integer() or boolean() -> integer())
+   def f(x) do
+-    if not is_binary(x) do
+-      if not is_boolean(x) do
+-        String.length(x)
++    if is_binary(x) or is_integer(x) do
++      if is_integer(x) or is_boolean(x) do
++        byte_size(x)
+       else
+         0
+       end
+     else
+-      x
++      0
+     end
+   end
+ end
+@@ -125,9 +127,10 @@ end
+ ## Example struct_fields
+ ## success
+ defmodule IfTBenchmarkElixir.StructFieldsSuccess do
+-  def f(%{a: a}) do
+-    if is_integer(a) do
+-      a
++  @assert_type_form (%{..., a: term()} -> integer())
++  def f(x) do
++    if is_integer(x.a) do
++      x.a
+     else
+       0
+     end
+@@ -136,9 +139,10 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.StructFieldsFailure do
+-  def f(%{a: a}) do
+-    if is_integer(a) do
+-      String.length(a)
++  @assert_type_form (%{..., a: term()} -> integer())
++  def f(x) do
++    if is_binary(x.a) do
++      x.a
+     else
+       0
+     end
+@@ -148,9 +152,10 @@ end
+ ## Example tuple_elements
+ ## success
+ defmodule IfTBenchmarkElixir.TupleElementsSuccess do
+-  def f({a, _b}) do
+-    if is_integer(a) do
+-      a
++  @assert_type_form ({term(), term()} -> integer())
++  def f(x) do
++    if is_integer(elem(x, 0)) do
++      elem(x, 0)
+     else
+       0
+     end
+@@ -159,9 +164,10 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.TupleElementsFailure do
+-  def f({a, _b}) do
+-    if is_integer(a) do
+-      String.length(a)
++  @assert_type_form ({term(), term()} -> integer())
++  def f(x) do
++    if is_integer(elem(x, 0)) do
++      elem(x, 0) + elem(x, 1)
+     else
+       0
+     end
+@@ -171,29 +177,28 @@ end
+ ## Example tuple_length
+ ## success
+ defmodule IfTBenchmarkElixir.TupleLengthSuccess do
+-  def f(x)
+-      when (tuple_size(x) == 2 and is_integer(elem(x, 0)) and is_integer(elem(x, 1))) or
+-             (tuple_size(x) == 3 and
+-                is_binary(elem(x, 0)) and
+-                is_binary(elem(x, 1)) and is_binary(elem(x, 2))) do
++  @define_type_form int_pair: {integer(), integer()}
++  @define_type_form string_triple: {binary(), binary(), binary()}
++  @assert_type_form (int_pair() or string_triple() -> integer())
++  def f(x) do
+     if tuple_size(x) == 2 do
+       elem(x, 0) + elem(x, 1)
+     else
+-      elem(x, 0) <> elem(x, 1) <> elem(x, 2)
++      byte_size(elem(x, 0))
+     end
+   end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.TupleLengthFailure do
+-  def g(x)
+-      when (tuple_size(x) == 2 and is_integer(elem(x, 0)) and is_integer(elem(x, 1))) or
+-             (tuple_size(x) == 3 and
+-                is_binary(elem(x, 0)) and
+-                is_binary(elem(x, 1)) and is_binary(elem(x, 2))) do
+-    case x do
+-      {a, b} -> a + b
+-      {_, _, _} -> elem(x, 0) + elem(x, 1)
++  @define_type_form int_pair: {integer(), integer()}
++  @define_type_form string_triple: {binary(), binary(), binary()}
++  @assert_type_form (int_pair() or string_triple() -> integer())
++  def f(x) do
++    if tuple_size(x) == 2 do
++      elem(x, 0) + elem(x, 1)
++    else
++      elem(x, 0) + elem(x, 1)
+     end
+   end
+ end
+@@ -201,20 +206,23 @@ end
+ ## Example alias
+ ## success
+ defmodule IfTBenchmarkElixir.AliasSuccess do
+-  def f(x) when is_binary(x) or is_integer(x) do
++  @assert_type_form (term() -> term())
++  def f(x) do
+     y = is_binary(x)
+ 
+     if y do
+-      String.length(x)
++      byte_size(x)
+     else
+-      x + 1
++      x
+     end
+   end
+ end
+ 
+ ## failure
++## subcase saved-alias
+ defmodule IfTBenchmarkElixir.AliasFailure do
+-  def f(x) when is_binary(x) or is_integer(x) do
++  @assert_type_form (term() -> term())
++  def f(x) do
+     y = is_binary(x)
+ 
+     if y do
+@@ -225,13 +233,28 @@ defmodule IfTBenchmarkElixir.AliasFailure do
+   end
+ end
+ 
++## subcase reassigned-alias
++defmodule IfTBenchmarkElixir.AliasFailure do
++  @assert_type_form (term() -> term())
++  def g(x) do
++    y = is_binary(x)
++    y = true
++
++    if y do
++      byte_size(x)
++    else
++      x
++    end
++  end
++end
++
+ ## Example nesting_condition
+ ## success
+ defmodule IfTBenchmarkElixir.NestingConditionSuccess do
+-  def f(x, y)
+-      when (is_integer(x) or is_binary(x)) and (is_binary(y) or is_integer(y)) do
++  @assert_type_form (term(), term() -> integer())
++  def f(x, y) do
+     if if(is_integer(x), do: is_binary(y), else: false) do
+-      x + String.length(y)
++      x + byte_size(y)
+     else
+       0
+     end
+@@ -240,10 +263,10 @@ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.NestingConditionFailure do
+-  def f(x, y)
+-      when (is_integer(x) or is_binary(x)) and (is_binary(y) or is_integer(y)) do
++  @assert_type_form (term(), term() -> integer())
++  def f(x, y) do
+     if if(is_integer(x), do: is_binary(y), else: is_binary(y)) do
+-      String.length(x) + x
++      x + byte_size(y)
+     else
+       0
+     end
+@@ -253,53 +276,69 @@ end
+ ## Example merge_with_union
+ ## success
+ defmodule IfTBenchmarkElixir.MergeWithUnionSuccess do
++  @assert_type_form (term() -> binary() or integer())
+   def f(x) do
+-    y =
+-      cond do
+-        is_binary(x) -> x <> "hello"
+-        is_integer(x) -> x + 1
+-        true -> 0
++    x =
++      if is_binary(x) do
++        x <> "hello"
++      else
++        if is_integer(x) do
++          x + 1
++        else
++          0
++        end
+       end
+ 
+-    y
++    x
+   end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.MergeWithUnionFailure do
++  @assert_type_form (term() -> binary() or integer())
+   def f(x) do
+-    y =
+-      cond do
+-        is_binary(x) -> x <> "hello"
+-        is_integer(x) -> x + 1
+-        true -> 0
++    x =
++      if is_binary(x) do
++        x <> "hello"
++      else
++        if is_integer(x) do
++          x + 1
++        else
++          0
++        end
+       end
+ 
+-    String.length(y) + y
++    x + 1
+   end
+ end
+ 
+ ## Example predicate_2way
+ ## success
+ defmodule IfTBenchmarkElixir.Predicate2WaySuccess do
+-  defguard binary_value?(x) when is_binary(x)
++  @assert_type_form (binary() -> true) and (integer() -> false)
++  def helper(x), do: is_binary(x)
+ 
+-  def g(x) when is_binary(x) or is_integer(x) do
+-    case x do
+-      x when binary_value?(x) -> String.length(x)
+-      x -> x + 1
++  @assert_type_form (binary() or integer() -> integer())
++  def g(x) do
++    if helper(x) do
++      byte_size(x)
++    else
++      x
+     end
+   end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.Predicate2WayFailure do
+-  defguard binary_value?(x) when is_binary(x)
++  @assert_type_form (binary() -> true) and (integer() -> false)
++  def helper(x), do: is_binary(x)
+ 
+-  def g(x) when is_binary(x) or is_integer(x) do
+-    case x do
+-      x when binary_value?(x) -> x + 1
+-      x -> x
++  @assert_type_form (binary() or integer() -> integer())
++  def g(x) do
++    if helper(x) do
++      x + 1
++    else
++      x
+     end
+   end
+ end
+@@ -307,24 +346,32 @@ end
+ ## Example predicate_1way
+ ## success
+ defmodule IfTBenchmarkElixir.Predicate1WaySuccess do
+-  defguard positive_integer?(x) when is_integer(x) and x > 0
++  @assert_type_form (integer() -> boolean()) and (binary() -> false)
++  def helper(x) when is_integer(x), do: x > 0
++  def helper(x) when is_binary(x), do: false
+ 
+-  def g(x) when is_binary(x) or is_integer(x) do
+-    case x do
+-      x when positive_integer?(x) -> x + 1
+-      _ -> 0
++  @assert_type_form (binary() or integer() -> integer())
++  def g(x) do
++    if helper(x) do
++      x + 1
++    else
++      0
+     end
+   end
+ end
+ 
+ ## failure
+ defmodule IfTBenchmarkElixir.Predicate1WayFailure do
+-  defguard positive_integer?(x) when is_integer(x) and x > 0
++  @assert_type_form (integer() -> boolean()) and (binary() -> false)
++  def helper(x) when is_integer(x), do: x > 0
++  def helper(x) when is_binary(x), do: false
+ 
+-  def g(x) when is_binary(x) or is_integer(x) do
+-    case x do
+-      x when positive_integer?(x) -> x + 1
+-      x -> String.length(x) + x
++  @assert_type_form (binary() or integer() -> integer())
++  def g(x) do
++    if helper(x) do
++      x + 1
++    else
++      byte_size(x)
+     end
+   end
+ end
+@@ -332,24 +379,22 @@ end
+ ## Example predicate_checked
+ ## success
+ defmodule IfTBenchmarkElixir.PredicateCheckedSuccess do
+-  def g(x) do
+-    if IfTBenchmarkElixir.Helpers.integer_value?(x) do
+-      x + 1
+-    else
+-      0
+-    end
+-  end
++  @assert_type_form (binary() -> true) and (integer() or boolean() -> false)
++  def helper(x), do: is_binary(x)
++
++  @assert_type_form (binary() -> false) and (integer() or boolean() -> true)
++  def g(x), do: not helper(x)
+ end
+ 
+ ## failure
++## subcase f
+ defmodule IfTBenchmarkElixir.PredicateCheckedFailure do
+-  def checked_integer?(_x), do: true
++  @assert_type_form (binary() -> true) and (integer() or boolean() -> false)
++  def f(x), do: is_binary(x) or is_integer(x)
++end
+ 
+-  def g(x) do
+-    if checked_integer?(x) do
+-      x + 1
+-    else
+-      0
+-    end
+-  end
++## subcase g
++defmodule IfTBenchmarkElixir.PredicateCheckedFailure do
++  @assert_type_form (binary() -> false) and (integer() or boolean() -> true)
++  def g(x), do: is_integer(x)
+ end
+diff --git a/README.md b/README.md
+index acd4006..a3445ab 100644
+--- a/README.md
++++ b/README.md
+@@ -548,7 +548,8 @@ For language details: [SETUP.md](./SETUP.md)
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | O      |
+ | predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |
+ 
+-`O` means passed, `x` means not passed.
++`O` means passed, `x` means partially missed, and `X` means both the success and
++failure programs missed the expected behavior.
+ 
+ ## Example Programs
+ 
+@@ -560,7 +561,7 @@ The results of these examples are demonstrated below.
+ | filter    | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | x      |
+ | flatten   | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | x      |
+ | tree_node | O            | x          | x    | x    | x       | x      | x    | O     | O             | x      | x       | x      |
+-| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | x      |
++| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | O      |
+ 
+ ## Other Discussions
+ 
+diff --git a/TypeScript/main.ts b/TypeScript/main.ts
+index a7c8b8b..34e282b 100644
+--- a/TypeScript/main.ts
++++ b/TypeScript/main.ts
+@@ -62,6 +62,7 @@ function connectives_success_h(x: string | number | boolean): number {
+ }
+ 
+ // failure
++// subcase f
+ function connectives_failure_f(x: string | number): number {
+   if (typeof x !== "number") {
+     return x + 1;
+@@ -70,6 +71,7 @@ function connectives_failure_f(x: string | number): number {
+   }
+ }
+ 
++// subcase g
+ function connectives_failure_g(x: unknown): number {
+   if (typeof x === "string" || typeof x === "number") {
+     return x + 1;
+@@ -78,6 +80,7 @@ function connectives_failure_g(x: unknown): number {
+   }
+ }
+ 
++// subcase h
+ function connectives_failure_h(x: string | number | boolean): number {
+   if (typeof x !== "boolean" && typeof x !== "number") {
+     return x + 1;
+@@ -177,6 +180,7 @@ function alias_success_f(x: unknown): unknown {
+   }
+ }
+ // failure
++// subcase saved-alias
+ function alias_failure_f(x: unknown): unknown {
+   const y = typeof x === "string";
+   if (y) {
+@@ -186,6 +190,7 @@ function alias_failure_f(x: unknown): unknown {
+   }
+ }
+ 
++// subcase reassigned-alias
+ function alias_failure_g(x: unknown): unknown {
+   let y = typeof x === "string";
+   y = true;
+@@ -303,10 +308,12 @@ function predicate_checked_success_g(x: string | number | boolean): x is number
+ }
+ 
+ // failure
++// subcase f
+ function predicate_checked_failure_f(x: string | number | boolean): x is string {
+   return typeof x === "string" || typeof x === "number";
+ }
+ 
++// subcase g
+ function predicate_checked_failure_g(x: string | number | boolean): x is number | boolean {
+   return typeof x === "number";
+ }
+diff --git a/lib.rkt b/lib.rkt
+index cde21c9..59d6b39 100644
+--- a/lib.rkt
++++ b/lib.rkt
+@@ -132,6 +132,30 @@
+ (define (join-lines lines)
+   (string-join lines "\n"))
+ 
++(define (split-subcases lines comment-char comment-prefix)
++  (define subcase-start (marker-start comment-char comment-prefix 2 "subcase"))
++  (if (not (ormap (lambda (line) (string-prefix? line subcase-start)) lines))
++      (list lines)
++      (let loop ([prefix '()] [chunks '()] [chunk '()] [lines lines] [seen-subcase? #f])
++        (cond
++          [(null? lines)
++           (reverse
++            (if (null? chunk)
++                chunks
++                (cons (append prefix (reverse chunk)) chunks)))]
++          [(string-prefix? (car lines) subcase-start)
++           (if seen-subcase?
++               (loop prefix
++                     (if (null? chunk)
++                         chunks
++                         (cons (append prefix (reverse chunk)) chunks))
++                     '()
++                     (cdr lines)
++                     #t)
++               (loop (reverse chunk) chunks '() (cdr lines) #t))]
++          [else
++           (loop prefix chunks (cons (car lines) chunk) (cdr lines) seen-subcase?)]))))
++
+ (define (find-exe pre-exe)
+   (define fep (find-executable-path pre-exe))
+   (if (path? fep)
+@@ -150,10 +174,13 @@
+                  [current-error-port (open-output-nowhere)])
+     (apply system* exe cmd*)))
+ 
+-(define (run-test-case test-case header-lines footer-lines command arguments extension)
++(define (run-test-case test-case header-lines footer-lines command arguments extension comment-char comment-prefix)
+   (let ([test-case-name (car test-case)]
+         [success-input (join-lines (append header-lines (cadr test-case) footer-lines))]
+-        [failure-input (join-lines (append header-lines (cddr test-case) footer-lines))])
++        [failure-inputs
++         (map (lambda (failure-lines)
++                (join-lines (append header-lines failure-lines footer-lines)))
++              (split-subcases (cddr test-case) comment-char comment-prefix))])
+     (when (benchmark-verbose)
+       (displayln (format "Running test case ~a ..." test-case-name)))
+     (define succeeded (eq? #t
+@@ -161,18 +188,21 @@
+                              (lambda (input-file)
+                                (shell-command command arguments input-file))
+                              extension)))
+-    (define failed (eq? #f
+-                        (with-temp-file failure-input
+-                          (lambda (input-file)
+-                            (shell-command command arguments input-file))
+-                          extension)))
++    (define failed
++      (andmap (lambda (failure-input)
++                (eq? #f
++                     (with-temp-file failure-input
++                       (lambda (input-file)
++                         (shell-command command arguments input-file))
++                       extension)))
++              failure-inputs))
+     (list test-case-name
+           succeeded
+           failed)))
+ 
+-(define (run-test-cases test-cases header-lines footer-lines command arguments extension)
++(define (run-test-cases test-cases header-lines footer-lines command arguments extension comment-char comment-prefix)
+   (map (lambda (test-case)
+-         (run-test-case test-case header-lines footer-lines command arguments extension))
++         (run-test-case test-case header-lines footer-lines command arguments extension comment-char comment-prefix))
+        test-cases))
+ 
+ (define (run-benchmark-item file-base-path command arguments comment-char extension
+@@ -189,7 +219,7 @@
+                [lines (read-file-into-lines file-name-to-read)])
+           (let-values ([(header-lines body-lines footer-lines) (split-file lines comment-char comment-prefix)])
+             (let ([test-cases (split-test-cases body-lines comment-char comment-prefix)])
+-              (run-test-cases test-cases header-lines footer-lines command (cdr arguments) extension)))))))
++              (run-test-cases test-cases header-lines footer-lines command (cdr arguments) extension comment-char comment-prefix)))))))
+   (when post-func
+     (with-current-directory post-dir
+       (lambda () (apply post-func null))))
+diff --git a/results-examples.md b/results-examples.md
+index a02dea0..f6e5ab4 100644
+--- a/results-examples.md
++++ b/results-examples.md
+@@ -3,4 +3,4 @@
+ | filter    | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | x      |
+ | flatten   | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | x      |
+ | tree_node | O            | x          | x    | x    | x       | x      | x    | O     | O             | x      | x       | x      |
+-| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | x      |
++| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | O      |

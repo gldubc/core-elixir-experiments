@@ -1,10 +1,14 @@
 EXPERIMENT_DIR := experiments/01-guard-exactness
 ARROW_EXPERIMENT_DIR := experiments/02-arrow-return-informativeness
 DYNAMIC_EXPERIMENT_DIR := experiments/03-dynamic-propagation-removal
+IFT_EXPERIMENT_DIR := experiments/04-if-t-benchmark
 ELIXIR_COMMIT := 095c1649c59651a959c57ed15628ea3aebc388d3
 PYTHON ?= python3
 BUILD_DIR ?= build
 ELIXIR_ROOT ?= $(BUILD_DIR)/elixir-guard-exactness
+IFT_BENCHMARK_ROOT ?= /Users/gldubc/Code/research/writing/active/core-elixir/if-t-benchmarks/ifT-benchmark
+TYPESPEC_ELIXIR_BIN ?= /Users/gldubc/Code/research/elixir/worktrees/typespec-translation/bin/elixir
+IFT_OUTPUT ?= $(BUILD_DIR)/ift-benchmark-core-rerun.txt
 RUN_ID ?=
 RUN_DIR ?=
 COMPILE_TIMEOUT ?= 60
@@ -21,7 +25,7 @@ confirm = @$(PYTHON) scripts/confirm.py --enabled "$(CONFIRM)" "$(1)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean check check-artifact verify-patch check-arrow-return verify-arrow-return-patch reproduce-experiment-02-smoke check-dynamic-propagation verify-dynamic-propagation-patch reproduce-experiment-03-smoke setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
+.PHONY: help clean check check-artifact verify-patch check-arrow-return verify-arrow-return-patch reproduce-experiment-02-smoke check-dynamic-propagation verify-dynamic-propagation-patch reproduce-experiment-03-smoke check-ift-benchmark reproduce-experiment-04-smoke reproduce-experiment-04-full setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
 
 help:
 	@printf '%s\n' 'Core Elixir experiment artifact targets:'
@@ -33,6 +37,8 @@ help:
 	@printf '%s\n' '  make verify-arrow-return-patch        Check the arrow-return compiler patch applies.'
 	@printf '%s\n' '  make reproduce-experiment-03-smoke    Validate the dynamic-propagation warning table.'
 	@printf '%s\n' '  make verify-dynamic-propagation-patch Check the dynamic-propagation compiler patch applies.'
+	@printf '%s\n' '  make reproduce-experiment-04-smoke    Validate the If-T Elixir benchmark row.'
+	@printf '%s\n' '  make reproduce-experiment-04-full     Rerun the If-T Elixir benchmark locally.'
 	@printf '%s\n' '  make prepare-deps                     Prepare external repo dependencies with system Mix.'
 	@printf '%s\n' '  make summarize                        Regenerate summaries from RUN_DIR raw JSONL.'
 	@printf '%s\n' '  make package-raw                      Package RUN_DIR raw JSONL and per-site CSV.'
@@ -45,6 +51,8 @@ help:
 	@printf '%s\n' '  COMPILE_TIMEOUT=60'
 	@printf '%s\n' '  SYSTEM_MIX=/path/to/mix'
 	@printf '%s\n' '  ELIXIR_ROOT=build/elixir-guard-exactness'
+	@printf '%s\n' '  IFT_BENCHMARK_ROOT=/path/to/ifT-benchmark'
+	@printf '%s\n' '  TYPESPEC_ELIXIR_BIN=/path/to/typespec-translation/bin/elixir'
 	@printf '%s\n' '  CONFIRM=0'
 
 clean:
@@ -56,7 +64,7 @@ clean:
 
 check:
 	$(call confirm,Validating committed summaries and verifying the compiler patches.)
-	@$(MAKE) --no-print-directory check-artifact verify-patch check-arrow-return verify-arrow-return-patch check-dynamic-propagation verify-dynamic-propagation-patch CONFIRM=0
+	@$(MAKE) --no-print-directory check-artifact verify-patch check-arrow-return verify-arrow-return-patch check-dynamic-propagation verify-dynamic-propagation-patch check-ift-benchmark CONFIRM=0
 
 check-artifact:
 	$(call confirm,Validating committed guard-exactness summary artifacts.)
@@ -106,6 +114,24 @@ verify-dynamic-propagation-patch:
 reproduce-experiment-03-smoke:
 	$(call confirm,Validating the archived dynamic-propagation removal warning table.)
 	$(PYTHON) $(DYNAMIC_EXPERIMENT_DIR)/tools/dynamic_propagation_experiment.py validate
+
+check-ift-benchmark:
+	$(call confirm,Validating committed If-T Elixir benchmark artifacts.)
+	$(PYTHON) -m py_compile $(IFT_EXPERIMENT_DIR)/tools/ift_benchmark_experiment.py
+	$(PYTHON) $(IFT_EXPERIMENT_DIR)/tools/ift_benchmark_experiment.py validate \
+		--result $(IFT_EXPERIMENT_DIR)/results/core-elixir-result.txt
+
+reproduce-experiment-04-smoke:
+	$(call confirm,Validating the archived If-T Elixir benchmark row.)
+	$(PYTHON) $(IFT_EXPERIMENT_DIR)/tools/ift_benchmark_experiment.py validate \
+		--result $(IFT_EXPERIMENT_DIR)/results/core-elixir-result.txt
+
+reproduce-experiment-04-full:
+	$(call confirm,Rerunning the If-T Elixir core benchmark with $(TYPESPEC_ELIXIR_BIN).)
+	$(PYTHON) $(IFT_EXPERIMENT_DIR)/tools/ift_benchmark_experiment.py run \
+		--benchmark-root "$(IFT_BENCHMARK_ROOT)" \
+		--elixir-bin "$(TYPESPEC_ELIXIR_BIN)" \
+		--output "$(IFT_OUTPUT)"
 
 setup-elixir:
 	$(call confirm,Cloning or patching the instrumented Elixir checkout at $(ELIXIR_ROOT).)

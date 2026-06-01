@@ -1,0 +1,153 @@
+From ca208622ac81573aa2c38c6dc350bb7ad1d91b8d Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 18:36:33 +0200
+Subject: [PATCH 04/12] Record research Elixir benchmark results
+
+
+diff --git a/Dockerfile b/Dockerfile
+index 145c5cd..13f2e33 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,14 +1,23 @@
+-FROM elixir:1.19.5-otp-28
++FROM erlang:28
+ 
+ RUN apt-get update && apt-get install -y --no-install-recommends \
+         ca-certificates \
+         curl \
++        git \
+         build-essential \
+         libsqlite3-dev \
+         libfontconfig libcairo2 libjpeg-dev libglib2.0-0 libpango-1.0-0 libpng16-16 libpangocairo-1.0-0
+ 
+ ENV HOME=/root
+ 
++ARG ELIXIR_COMMIT=b08f6fa3e218a3281348ef81785e0d39406beacf
++RUN git clone https://github.com/elixir-lang/elixir.git /opt/elixir && \
++    cd /opt/elixir && \
++    git checkout $ELIXIR_COMMIT && \
++    make
++
++ENV PATH=/opt/elixir/bin:$PATH
++
+ WORKDIR /root
+ 
+ RUN curl -L -O https://download.racket-lang.org/releases/8.15/installers/racket-8.15-src-builtpkgs.tgz && \
+diff --git a/Elixir/README.md b/Elixir/README.md
+index 51e0446..af3669b 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -10,6 +10,7 @@ Elixir is a dynamic language that compiles to BEAM.
+ * Implementation: [./main.ex](./main.ex)
+ * Raw command to run the benchmark: `mix compile --warnings-as-errors --force` (through [./checker.exs](./checker.exs))
+ * Driver commands from the repository root: `racket main.rkt elixir` and `racket main.rkt --examples elixir`
++* Reported compiler: `/Users/gldubc/Code/research/elixir/main/bin/elixir`, commit `b08f6fa3e218a3281348ef81785e0d39406beacf` (`Elixir 1.21.0-dev`)
+ 
+ #### Type System Basics
+ 
+@@ -66,7 +67,7 @@ N/A.
+ 
+ > Q. Are any benchmarks inexpressible? Why?
+ 
+-The benchmark scenarios are expressible as code, but Elixir does not provide a static narrowing type system comparable to the other entries. The faithful negative cases compile, so the benchmark reports them as not passed.
++The benchmark scenarios are expressible as code. Some faithful negative cases emit type warnings with the research Elixir compiler, and the benchmark treats those warnings as failures via `--warnings-as-errors`.
+ 
+ 
+ > Q. Are any benchmarks expressed particularly well, or particularly poorly? Explain.
+@@ -83,7 +84,7 @@ Moderately direct, with adaptations to Elixir idioms.
+ 
+ > Q. Are any examples inexpressible? Why?
+ 
+-No, but the faithful negative examples compile.
++No, but the faithful negative examples currently compile without type warnings.
+ 
+ 
+ > Q. Are any examples expressed particularly well, or particularly poorly? Explain.
+diff --git a/README.md b/README.md
+index f8b7892..4a4e153 100644
+--- a/README.md
++++ b/README.md
+@@ -534,19 +534,19 @@ For language details: [SETUP.md](./SETUP.md)
+ 
+ | Benchmark         | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau   | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
+ |:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
+-| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
++| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+ | connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | x      |
+-| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+-| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | x      |
+-| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+-| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | x      |
++| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
++| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+ | nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | x      |
+ | merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+-| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | x      |
++| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |
+ 
+ `O` means passed, `x` means not passed.
+ 
+diff --git a/SETUP.md b/SETUP.md
+index db1295e..867be01 100644
+--- a/SETUP.md
++++ b/SETUP.md
+@@ -7,7 +7,7 @@ To run the benchmark, you need to have the following tools installed:
+ - [Python and pip](https://www.python.org/)
+ - [Ruby and gem](https://www.ruby-lang.org/)
+ - [MLsem](https://github.com/E-Sh4rk/MLsem)
+-- [Erlang/OTP and Elixir](https://elixir-lang.org/install.html)
++- [Erlang/OTP and Elixir](https://elixir-lang.org/install.html). The reported Elixir results use the Elixir checkout at `/Users/gldubc/Code/research/elixir/main`, commit `b08f6fa3e218a3281348ef81785e0d39406beacf`.
+ 
+ The tested versions are:
+ 
+@@ -29,8 +29,8 @@ The tested versions are:
+ | Luau         | 0.717     | https://github.com/luau-lang/luau/releases/tag/0.717                                                                  |
+ | MLsem        | v1.0.1-51-g868afd7 | Must be installed separately as `mlsem` on `PATH`                                                            |
+ | Clojure      | 1.12.4    | https://clojure.org/guides/install_clojure                                                                            |
+-| Erlang/OTP   | 28        | See `elixir -v`; the Dockerfile pins `elixir:1.19.5-otp-28`                                                          |
+-| Elixir       | 1.19.5    | See `elixir -v`; the Dockerfile pins `elixir:1.19.5-otp-28`                                                          |
++| Erlang/OTP   | 28        | See `elixir -v`; the Dockerfile uses `erlang:28`                                                                      |
++| Elixir       | 1.21.0-dev (`b08f6fa3e218a3281348ef81785e0d39406beacf`) | Put that checkout's `bin` directory first on `PATH`; the Dockerfile builds this commit from source |
+ 
+ First, clone this repository:
+ 
+@@ -86,3 +86,7 @@ When parameter `<type-checker>` is not provided, the benchmark will run all type
+ To run the benchmark and example programs with markdown output:
+ * `racket main.rkt -f markdown`
+ * `racket main.rkt -e -f markdown`
++
++To reproduce the reported Elixir row locally:
++* `PATH=/Users/gldubc/Code/research/elixir/main/bin:$PATH racket main.rkt elixir`
++* `PATH=/Users/gldubc/Code/research/elixir/main/bin:$PATH racket main.rkt -e elixir`
+diff --git a/results-core.md b/results-core.md
+index e4cca6d..e0c2ecd 100644
+--- a/results-core.md
++++ b/results-core.md
+@@ -1,15 +1,15 @@
+ | Benchmark         | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau   | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
+ |:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
+-| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
++| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
+ | negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+ | connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | x      |
+-| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+-| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | x      |
+-| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | x      |
+-| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | x      |
++| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
++| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+ | nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | x      |
+ | merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+-| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | x      |
++| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |

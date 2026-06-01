@@ -1,0 +1,58 @@
+From 6daff370b7fc9b9de4d09a71e497f8b617807e00 Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Sat, 23 May 2026 00:03:44 +0200
+Subject: [PATCH 09/12] Revise Elixir merge-with-union benchmark
+
+
+diff --git a/Elixir/README.md b/Elixir/README.md
+index 3c4c1e9..b916e45 100644
+--- a/Elixir/README.md
++++ b/Elixir/README.md
+@@ -80,6 +80,8 @@ The `alias` benchmark bounds the input with a guard before assigning `y = is_bin
+ 
+ The `nesting_condition` benchmark also bounds its inputs first. Elixir propagates the facts from the inner conditional to the outer body; the failure witness uses `String.length(x) + x` to make the unclear type of `x` observable under Elixir's dynamic-union compatibility.
+ 
++The `merge_with_union` failure uses `String.length(y) + y` after the merge. This keeps the merged binary/integer value visible while avoiding the misleading `y + 1`, which is compatible with the integer alternative of `dynamic(binary() or integer())`.
++
+ 
+ > Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
+ 
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+index 466b6c5..2aa67e4 100644
+--- a/Elixir/main.ex
++++ b/Elixir/main.ex
+@@ -275,7 +275,7 @@ defmodule IfTBenchmarkElixir.MergeWithUnionFailure do
+         true -> 0
+       end
+ 
+-    y + 1
++    String.length(y) + y
+   end
+ end
+ 
+diff --git a/README.md b/README.md
+index 2863b6d..89ae134 100644
+--- a/README.md
++++ b/README.md
+@@ -543,7 +543,7 @@ For language details: [SETUP.md](./SETUP.md)
+ | tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+ | nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
+-| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
++| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | O      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |
+diff --git a/results-core.md b/results-core.md
+index 70640a3..0d02809 100644
+--- a/results-core.md
++++ b/results-core.md
+@@ -9,7 +9,7 @@
+ | tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
+ | alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | x      |
+ | nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
+-| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | x      |
++| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | O      |
+ | predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | x      |
+ | predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |

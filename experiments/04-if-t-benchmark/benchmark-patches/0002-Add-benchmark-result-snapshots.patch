@@ -1,0 +1,39 @@
+From d7d469f9ee1aae8384e5e747d0364fbb24325bdd Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 17:58:24 +0200
+Subject: [PATCH 02/12] Add benchmark result snapshots
+
+
+diff --git a/results-core.md b/results-core.md
+new file mode 100644
+index 0000000..bd1bf13
+--- /dev/null
++++ b/results-core.md
+@@ -0,0 +1,15 @@
++| Benchmark         | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau   | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
++|:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
++| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | O      |
++| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
++| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
++| alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | O      |
++| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
++| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | O      |
++| predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | O      |
++| predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | O      |
++| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |
+diff --git a/results-examples.md b/results-examples.md
+new file mode 100644
+index 0000000..917e803
+--- /dev/null
++++ b/results-examples.md
+@@ -0,0 +1,6 @@
++| Benchmark | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
++|:----------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:----:|:-----:|:-------------:|:------:|:-------:|:------:|
++| filter    | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | O      |
++| flatten   | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | O      |
++| tree_node | O            | x          | x    | x    | x       | x      | x    | O     | O             | x      | x       | O      |
++| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | O      |

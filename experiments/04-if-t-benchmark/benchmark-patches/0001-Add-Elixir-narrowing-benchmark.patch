@@ -1,0 +1,872 @@
+From 04903051cde1caba354822dd752c8d73eaa70ecb Mon Sep 17 00:00:00 2001
+From: Guillaume Duboc <27832828+gldubc@users.noreply.github.com>
+Date: Fri, 22 May 2026 17:39:45 +0200
+Subject: [PATCH 01/12] Add Elixir narrowing benchmark
+
+
+diff --git a/.gitignore b/.gitignore
+index c1e0899..85425c9 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -36,3 +36,9 @@ node_modules/
+ 
+ # Racket
+ compiled/
++
++# Elixir / Mix
++_build/
++deps/
++.elixir_ls/
++Elixir/lib/benchmark_case.ex
+diff --git a/Dockerfile b/Dockerfile
+index 1af1957..145c5cd 100644
+--- a/Dockerfile
++++ b/Dockerfile
+@@ -1,4 +1,4 @@
+-FROM ubuntu:noble-20250404
++FROM elixir:1.19.5-otp-28
+ 
+ RUN apt-get update && apt-get install -y --no-install-recommends \
+         ca-certificates \
+diff --git a/Elixir/.formatter.exs b/Elixir/.formatter.exs
+new file mode 100644
+index 0000000..fd63d4d
+--- /dev/null
++++ b/Elixir/.formatter.exs
+@@ -0,0 +1,3 @@
++[
++  inputs: ["*.ex", "*.exs", "lib/*.ex"]
++]
+diff --git a/Elixir/README.md b/Elixir/README.md
+new file mode 100644
+index 0000000..e3fe75b
+--- /dev/null
++++ b/Elixir/README.md
+@@ -0,0 +1,96 @@
++Elixir
++===
++
++Elixir is a dynamic language that compiles to BEAM.
++
++* Language resources:
++  - <https://elixir-lang.org/>
++  - <https://hexdocs.pm/elixir/Kernel.SpecialForms.html>
++* If-T version: **1.0**
++* Implementation: [./main.ex](./main.ex)
++* Raw command to run the benchmark: `mix compile --warnings-as-errors --force` (through [./checker.exs](./checker.exs))
++* Driver commands from the repository root: `racket main.rkt elixir` and `racket main.rkt --examples elixir`
++
++#### Type System Basics
++
++> Q. What is the top type in this language? What is the bottom type? What is the dynamic type?
++> If these types do not exist, explain the alternatives.
++
++* Top = `term()`
++* Bottom = `none()`
++* Dynamic = Elixir is dynamically typed
++
++
++> Q. What base types does this implementation use? Why?
++
++`integer`, `binary` (string), and `boolean`.
++
++They are the most direct analogs to the benchmark pseudocode.
++
++
++> Q. What container types does this implementation use (for objects, tuples, etc)? Why?
++
++* Maps for object-like values
++* Tuples for fixed-size tuples
++* Lists for list-like examples
++
++
++#### Type Narrowing
++
++> Q. How do simple type tests work in this language?
++
++Runtime predicates such as `is_integer/1`, `is_binary/1`, and `is_map/1`.
++
++
++> Q. Are there other forms of type test? If so, explain.
++
++Pattern matching and guards in function heads and conditionals.
++
++
++> Q. How do type casts work in this language?
++
++N/A. Elixir does not have static casts in the same sense as gradual typed languages.
++
++
++> Q. What is the syntax for a symmetric (2-way) type-narrowing predicate?
++
++N/A. There is no built-in predicate annotation syntax like `x is T`.
++
++
++> Q. If the language supports other type-narrowing predicates, describe them below.
++
++N/A.
++
++
++#### Benchmark Details
++
++> Q. Are any benchmarks inexpressible? Why?
++
++The benchmark scenarios are expressible as code, but Elixir does not provide a static narrowing type system comparable to the other entries.
++
++
++> Q. Are any benchmarks expressed particularly well, or particularly poorly? Explain.
++
++Container and guard-heavy cases are direct. Predicate-annotation-specific cases are only approximated.
++
++
++> Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
++
++Moderately direct, with adaptations to Elixir idioms.
++
++
++#### Advanced Examples
++
++> Q. Are any examples inexpressible? Why?
++
++No.
++
++
++> Q. Are any examples expressed particularly well, or particularly poorly? Explain.
++
++`flatten` and `rainfall` map directly to recursive/iterative Elixir style.
++
++
++> Q. How direct (or complex) is the implementation compared to the pseudocode from If-T?
++
++Direct.
+diff --git a/Elixir/_benchmark.rkt b/Elixir/_benchmark.rkt
+new file mode 100644
+index 0000000..619f96a
+--- /dev/null
++++ b/Elixir/_benchmark.rkt
+@@ -0,0 +1,45 @@
++#lang racket
++
++(require racket/cmdline)
++(require "../lib.rkt")
++
++(define current-typechecker-symbol 'elixir)
++(define current-typechecker-name "Elixir")
++
++(define typechecker-parameters
++  `((name ,current-typechecker-name)
++    (comment-char #\#)
++    (extension ".ex")
++    (file-base-path ,(current-directory))
++    (examples-file-base-path ,(current-directory))
++    (arguments ,`(,"main.ex"
++                  ,(lambda (input-file)
++                     (list "checker.exs" (path->string input-file)))))
++    (examples-arguments ,`(,"examples.ex"
++                           ,(lambda (input-file)
++                              (list "checker.exs" (path->string input-file)))))
++    (command "elixir")))
++
++(command-line
++ #:program "_benchmark.rkt"
++ #:once-each
++ [("-v" "--verbose") "Print the output of the benchmarks to the console"
++                     (benchmark-verbose #t)]
++ [("-f" "--format") output-format "Print the output of the benchmarks in the specified format. Options: plain, markdown, tex. Default: plain."
++                    (benchmark-output-format (string->symbol output-format))]
++ [("-t" "--transpose") "Transpose the output of the benchmarks"
++                       (benchmark-output-transposed #t)]
++ [("-e" "--examples") "Run the advanced examples"
++                      (benchmark-run-examples #t)]
++ #:args ()
++ (void))
++
++(define benchmark-data (execute-benchmark-for-one-typechecker typechecker-parameters))
++(define benchmark-result-for-printing (list (cons current-typechecker-name benchmark-data)))
++
++(define actual-test-names (map car benchmark-data))
++(define header-row (cons "Benchmark" actual-test-names))
++
++(print-benchmark benchmark-result-for-printing
++                 (benchmark-output-format)
++                 header-row)
+diff --git a/Elixir/checker.exs b/Elixir/checker.exs
+new file mode 100644
+index 0000000..df8c325
+--- /dev/null
++++ b/Elixir/checker.exs
+@@ -0,0 +1,24 @@
++input_file =
++  case System.argv() do
++    [path] ->
++      path
++
++    _ ->
++      IO.puts(:stderr, "usage: elixir checker.exs <path-to-test-file>")
++      System.halt(2)
++  end
++
++root = __DIR__
++lib_dir = Path.join(root, "lib")
++bench_file = Path.join(lib_dir, "benchmark_case.ex")
++
++File.mkdir_p!(lib_dir)
++File.cp!(input_file, bench_file)
++
++{_output, status} =
++  System.cmd("mix", ["compile", "--warnings-as-errors", "--force"],
++    cd: root,
++    stderr_to_stdout: true
++  )
++
++System.halt(status)
+diff --git a/Elixir/examples.ex b/Elixir/examples.ex
+new file mode 100644
+index 0000000..cca8d84
+--- /dev/null
++++ b/Elixir/examples.ex
+@@ -0,0 +1,110 @@
++defmodule IfTBenchmarkElixir.ExampleHelpers do
++  def is_integer_predicate(x), do: is_integer(x)
++
++  def tree_node?({value, children}) when is_integer(value) and is_list(children) do
++    Enum.all?(children, &tree_node?/1)
++  end
++
++  def tree_node?(_), do: false
++end
++
++### Code:
++## Example filter
++## success
++defmodule IfTBenchmarkElixir.FilterSuccess do
++  def run(list, predicate) do
++    Enum.reduce(list, [], fn element, acc ->
++      if predicate.(element) do
++        [element | acc]
++      else
++        acc
++      end
++    end)
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.FilterFailure do
++  def run(list, predicate) do
++    Enum.reduce(list, [], fn element, acc ->
++      if predicate.(element) do
++        [element | acc]
++      else
++        1 + "oops"
++      end
++    end)
++  end
++end
++
++## Example flatten
++## success
++defmodule IfTBenchmarkElixir.FlattenSuccess do
++  def run([]), do: []
++  def run([head | tail]), do: run(head) ++ run(tail)
++  def run(value), do: [value]
++end
++
++## failure
++defmodule IfTBenchmarkElixir.FlattenFailure do
++  def run([]), do: []
++  def run([head | tail]), do: run(head) ++ run(tail)
++  def run(_value), do: 1 + "oops"
++end
++
++## Example tree_node
++## success
++defmodule IfTBenchmarkElixir.TreeNodeSuccess do
++  def run(node), do: IfTBenchmarkElixir.ExampleHelpers.tree_node?(node)
++end
++
++## failure
++defmodule IfTBenchmarkElixir.TreeNodeFailure do
++  def run(node) do
++    if IfTBenchmarkElixir.ExampleHelpers.tree_node?(node) do
++      true
++    else
++      1 + "oops"
++    end
++  end
++end
++
++## Example rainfall
++## success
++defmodule IfTBenchmarkElixir.RainfallSuccess do
++  def run(weather_reports) when is_list(weather_reports) do
++    {total, count} =
++      Enum.reduce(weather_reports, {0.0, 0}, fn day, {total, count} ->
++        if is_map(day) and Map.has_key?(day, :rainfall) do
++          value = Map.get(day, :rainfall)
++
++          if is_number(value) and value >= 0 and value <= 999 do
++            {total + value, count + 1}
++          else
++            {total, count}
++          end
++        else
++          {total, count}
++        end
++      end)
++
++    if count > 0 do
++      total / count
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.RainfallFailure do
++  def run(weather_reports) when is_list(weather_reports) do
++    Enum.reduce(weather_reports, 0.0, fn day, total ->
++      if is_map(day) and Map.has_key?(day, :rainfall) do
++        _value = Map.get(day, :rainfall)
++        total + "oops"
++      else
++        total
++      end
++    end)
++  end
++end
+diff --git a/Elixir/lib/if_t_benchmark_elixir.ex b/Elixir/lib/if_t_benchmark_elixir.ex
+new file mode 100644
+index 0000000..5adbb3f
+--- /dev/null
++++ b/Elixir/lib/if_t_benchmark_elixir.ex
+@@ -0,0 +1,2 @@
++defmodule IfTBenchmarkElixir do
++end
+diff --git a/Elixir/main.ex b/Elixir/main.ex
+new file mode 100644
+index 0000000..00396dd
+--- /dev/null
++++ b/Elixir/main.ex
+@@ -0,0 +1,348 @@
++defmodule IfTBenchmarkElixir.Helpers do
++  def positive_integer?(x), do: is_integer(x) and x > 0
++
++  def binary_or_integer?(x), do: is_binary(x) or is_integer(x)
++
++  def integer_value?(x) when is_integer(x), do: true
++  def integer_value?(_), do: false
++end
++
++### Code:
++## Example positive
++## success
++defmodule IfTBenchmarkElixir.PositiveSuccess do
++  def f(x) do
++    if is_binary(x) do
++      String.length(x)
++    else
++      x
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.PositiveFailure do
++  def f(x) do
++    if is_binary(x) do
++      String.length(x) + "oops"
++    else
++      x
++    end
++  end
++end
++
++## Example negative
++## success
++defmodule IfTBenchmarkElixir.NegativeSuccess do
++  def f(x) do
++    if is_binary(x) do
++      String.length(x)
++    else
++      x + 1
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.NegativeFailure do
++  def f(x) do
++    if is_binary(x) do
++      String.length(x)
++    else
++      1 + "oops"
++    end
++  end
++end
++
++## Example connectives
++## success
++defmodule IfTBenchmarkElixir.ConnectivesSuccess do
++  def f(x) do
++    if IfTBenchmarkElixir.Helpers.binary_or_integer?(x) and not is_boolean(x) do
++      if is_binary(x) do
++        String.length(x)
++      else
++        x + 1
++      end
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.ConnectivesFailure do
++  def f(x) do
++    if IfTBenchmarkElixir.Helpers.binary_or_integer?(x) and not is_boolean(x) do
++      if is_binary(x) do
++        String.length(x) + "oops"
++      else
++        x + 1
++      end
++    else
++      0
++    end
++  end
++end
++
++## Example nesting_body
++## success
++defmodule IfTBenchmarkElixir.NestingBodySuccess do
++  def f(x) do
++    if not is_binary(x) do
++      if not is_boolean(x) do
++        x + 1
++      else
++        0
++      end
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.NestingBodyFailure do
++  def f(x) do
++    if not is_binary(x) do
++      if not is_boolean(x) do
++        1 + "oops"
++      else
++        0
++      end
++    else
++      x
++    end
++  end
++end
++
++## Example struct_fields
++## success
++defmodule IfTBenchmarkElixir.StructFieldsSuccess do
++  def f(%{a: a}) do
++    if is_integer(a) do
++      a
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.StructFieldsFailure do
++  def f(%{a: a}) do
++    if is_binary(a) do
++      String.length(a) + "oops"
++    else
++      0
++    end
++  end
++end
++
++## Example tuple_elements
++## success
++defmodule IfTBenchmarkElixir.TupleElementsSuccess do
++  def f({a, _b}) do
++    if is_integer(a) do
++      a
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.TupleElementsFailure do
++  def f({a, _b}) do
++    if is_integer(a) do
++      1 + "oops"
++    else
++      0
++    end
++  end
++end
++
++## Example tuple_length
++## success
++defmodule IfTBenchmarkElixir.TupleLengthSuccess do
++  def f(x)
++      when (tuple_size(x) == 2 and is_integer(elem(x, 0)) and is_integer(elem(x, 1))) or
++             (tuple_size(x) == 3 and
++                is_binary(elem(x, 0)) and
++                is_binary(elem(x, 1)) and is_binary(elem(x, 2))) do
++    if tuple_size(x) == 2 do
++      elem(x, 0) + elem(x, 1)
++    else
++      elem(x, 0) <> elem(x, 1) <> elem(x, 2)
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.TupleLengthFailure do
++  def g(x)
++      when (tuple_size(x) == 2 and is_integer(elem(x, 0)) and is_integer(elem(x, 1))) or
++             (tuple_size(x) == 3 and
++                is_binary(elem(x, 0)) and
++                is_binary(elem(x, 1)) and is_binary(elem(x, 2))) do
++    if tuple_size(x) == 2 do
++      elem(x, 0) + elem(x, 1)
++    else
++      String.length(elem(x, 0)) + "oops"
++    end
++  end
++end
++
++## Example alias
++## success
++defmodule IfTBenchmarkElixir.AliasSuccess do
++  def f(x) do
++    y = is_binary(x)
++
++    if y do
++      String.length(x)
++    else
++      x
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.AliasFailure do
++  def f(x) do
++    y = is_binary(x)
++
++    if y do
++      String.length(x) + "oops"
++    else
++      x
++    end
++  end
++end
++
++## Example nesting_condition
++## success
++defmodule IfTBenchmarkElixir.NestingConditionSuccess do
++  def f(x, y) do
++    if if(is_integer(x), do: is_binary(y), else: false) do
++      x + String.length(y)
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.NestingConditionFailure do
++  def f(x, y) do
++    if if(is_integer(x), do: is_binary(y), else: is_binary(y)) do
++      String.length(y) + "oops"
++    else
++      x
++    end
++  end
++end
++
++## Example merge_with_union
++## success
++defmodule IfTBenchmarkElixir.MergeWithUnionSuccess do
++  def f(x) do
++    y =
++      cond do
++        is_binary(x) -> x <> "hello"
++        is_integer(x) -> x + 1
++        true -> 0
++      end
++
++    y
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.MergeWithUnionFailure do
++  def f(x) do
++    _y =
++      cond do
++        is_binary(x) -> x <> "hello"
++        is_integer(x) -> x + 1
++        true -> 0
++      end
++
++    1 + "oops"
++  end
++end
++
++## Example predicate_2way
++## success
++defmodule IfTBenchmarkElixir.Predicate2WaySuccess do
++  def binary_value?(x), do: is_binary(x)
++
++  def g(x) do
++    if binary_value?(x) do
++      String.length(x)
++    else
++      x
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.Predicate2WayFailure do
++  def binary_value?(x), do: is_binary(x)
++
++  def g(x) do
++    if binary_value?(x) do
++      String.length(x) + "oops"
++    else
++      x
++    end
++  end
++end
++
++## Example predicate_1way
++## success
++defmodule IfTBenchmarkElixir.Predicate1WaySuccess do
++  def g(x) do
++    if IfTBenchmarkElixir.Helpers.positive_integer?(x) do
++      x + 1
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.Predicate1WayFailure do
++  def g(x) do
++    if IfTBenchmarkElixir.Helpers.positive_integer?(x) do
++      x + 1
++    else
++      1 + "oops"
++    end
++  end
++end
++
++## Example predicate_checked
++## success
++defmodule IfTBenchmarkElixir.PredicateCheckedSuccess do
++  def g(x) do
++    if IfTBenchmarkElixir.Helpers.integer_value?(x) do
++      x + 1
++    else
++      0
++    end
++  end
++end
++
++## failure
++defmodule IfTBenchmarkElixir.PredicateCheckedFailure do
++  def checked_integer?(_x), do: true
++
++  def g(x) do
++    if checked_integer?(x) do
++      x + 1
++    else
++      1 + "oops"
++    end
++  end
++end
+diff --git a/Elixir/mix.exs b/Elixir/mix.exs
+new file mode 100644
+index 0000000..f1a7d43
+--- /dev/null
++++ b/Elixir/mix.exs
+@@ -0,0 +1,19 @@
++defmodule IfTBenchmarkElixir.MixProject do
++  use Mix.Project
++
++  def project do
++    [
++      app: :if_t_benchmark_elixir,
++      version: "0.1.0",
++      elixir: "~> 1.19",
++      start_permanent: Mix.env() == :prod,
++      deps: []
++    ]
++  end
++
++  def application do
++    [
++      extra_applications: [:logger]
++    ]
++  end
++end
+diff --git a/README.md b/README.md
+index 9927421..4b18d5b 100644
+--- a/README.md
++++ b/README.md
+@@ -28,6 +28,7 @@ For some instances, see
+ - [Flow documentation on type refinements](https://flow.org/en/docs/lang/refinements/#toc-refinement-invalidations)
+ - [Mypy documentation on type narrowing](https://mypy.readthedocs.io/en/stable/type_narrowing.html#typeguards-with-parameters)
+ - [Pyright documentation on type narrowing](https://github.com/microsoft/pyright/blob/main/docs/type-concepts-advanced.md#type-narrowing)
++- [Elixir documentation on guards and pattern matching](https://hexdocs.pm/elixir/patterns-and-guards.html)
+ 
+ <!-- markdown-toc start - Don't edit this section. Run M-x markdown-toc-refresh-toc -->
+ 
+@@ -531,21 +532,21 @@ Below is a table for all benchmark items as a quick reference.
+ 
+ For language details: [SETUP.md](./SETUP.md)
+ 
+-| Benchmark         | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau   | MLsem | Typed Clojure | ty     | Pyrefly |
+-|:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|
+-| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       |
+-| negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       |
+-| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       |
+-| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       |
+-| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       |
+-| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       |
+-| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       |
+-| alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       |
+-| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       |
+-| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       |
+-| predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       |
+-| predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       |
+-| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       |
++| Benchmark         | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau   | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
++|:------------------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:------:|:-----:|:-------------:|:------:|:-------:|:------:|
++| positive          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| negative          | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| connectives       | O            | O          | O    | O    | O       | O      | O      | x     | O             | O      | O       | O      |
++| nesting_body      | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| struct_fields     | O            | O          | O    | O    | O       | x      | O      | O     | O             | O      | O       | O      |
++| tuple_elements    | O            | O          | O    | O    | O       | O      | O      | O     | O             | O      | O       | O      |
++| tuple_length      | x            | O          | O    | O    | O       | x      | x      | O     | O             | x      | O       | O      |
++| alias             | O            | O          | x    | x    | O       | O      | x      | O     | O             | x      | O       | O      |
++| nesting_condition | O            | x          | x    | x    | x       | O      | x      | O     | O             | x      | x       | O      |
++| merge_with_union  | O            | O          | O    | x    | O       | O      | x      | O     | O             | O      | O       | O      |
++| predicate_2way    | O            | O          | O    | O    | O       | x      | x      | O     | O             | O      | O       | O      |
++| predicate_1way    | O            | x          | O    | O    | O       | x      | x      | O     | O             | O      | O       | O      |
++| predicate_checked | O            | x          | O    | x    | x       | x      | x      | O     | O             | x      | x       | O      |
+ 
+ `O` means passed, `x` means not passed.
+ 
+@@ -554,14 +555,12 @@ For language details: [SETUP.md](./SETUP.md)
+ [EXAMPLES.md](./EXAMPLES.md) contains more examples that are not included in the benchmark items. Those are real-world-like examples showing the use of type narrowing in various contexts. For more details about the examples, see [EXAMPLES.md](./EXAMPLES.md). For more details about the results, see the README.md file in the respective typechecker directories.
+ The results of these examples are demonstrated below.
+ 
+-| Benchmark | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau | MLsem | Typed Clojure | ty     | Pyrefly |
+-|:----------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:----:|:-----:|:-------------:|:------:|:-------:|
+-| filter    | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       |
+-| flatten   | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       |
+-| tree_node | O            | x          | x    | x    | x       | x      | x    | O     | O             | x      | x       |
+-| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       |
+-
+-
++| Benchmark | Typed Racket | TypeScript | Flow | mypy | Pyright | Sorbet | Luau | MLsem | Typed Clojure | ty     | Pyrefly | Elixir |
++|:----------|:------------:|:----------:|:----:|:----:|:-------:|:------:|:----:|:-----:|:-------------:|:------:|:-------:|:------:|
++| filter    | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | O      |
++| flatten   | O            | O          | O    | O    | O       | O      | O    | O     | O             | O      | O       | O      |
++| tree_node | O            | x          | x    | x    | x       | x      | x    | O     | O             | x      | x       | O      |
++| rainfall  | O            | O          | O    | O    | O       | O      | x    | O     | O             | x      | O       | O      |
+ 
+ ## Other Discussions
+ 
+diff --git a/SETUP.md b/SETUP.md
+index 5faa9b0..db1295e 100644
+--- a/SETUP.md
++++ b/SETUP.md
+@@ -7,6 +7,7 @@ To run the benchmark, you need to have the following tools installed:
+ - [Python and pip](https://www.python.org/)
+ - [Ruby and gem](https://www.ruby-lang.org/)
+ - [MLsem](https://github.com/E-Sh4rk/MLsem)
++- [Erlang/OTP and Elixir](https://elixir-lang.org/install.html)
+ 
+ The tested versions are:
+ 
+@@ -28,6 +29,8 @@ The tested versions are:
+ | Luau         | 0.717     | https://github.com/luau-lang/luau/releases/tag/0.717                                                                  |
+ | MLsem        | v1.0.1-51-g868afd7 | Must be installed separately as `mlsem` on `PATH`                                                            |
+ | Clojure      | 1.12.4    | https://clojure.org/guides/install_clojure                                                                            |
++| Erlang/OTP   | 28        | See `elixir -v`; the Dockerfile pins `elixir:1.19.5-otp-28`                                                          |
++| Elixir       | 1.19.5    | See `elixir -v`; the Dockerfile pins `elixir:1.19.5-otp-28`                                                          |
+ 
+ First, clone this repository:
+ 
+diff --git a/main.rkt b/main.rkt
+index aa5e32b..3be00d1 100644
+--- a/main.rkt
++++ b/main.rkt
+@@ -79,7 +79,19 @@
+             (examples-file-base-path ,(build-path (current-directory) "Sorbet"))
+             (arguments ,(list "main.rb" "exec" "srb" "tc"))
+             (examples-arguments ,(list "examples.rb" "exec" "srb" "tc"))
+-            (command "bundle"))))
++            (command "bundle"))
++    (elixir (name "Elixir")
++            (comment-char #\#)
++            (extension ".ex")
++            (file-base-path ,(build-path (current-directory) "Elixir"))
++            (examples-file-base-path ,(build-path (current-directory) "Elixir"))
++            (arguments ,`(,"main.ex"
++                          ,(lambda (input-file)
++                             (list "checker.exs" (path->string input-file)))))
++            (examples-arguments ,`(,"examples.ex"
++                                   ,(lambda (input-file)
++                                      (list "checker.exs" (path->string input-file)))))
++            (command "elixir"))))
+ 
+ (define (get-benchmark-result-row type-checker-symbol)
+   (when (benchmark-verbose)
+diff --git a/setup.sh b/setup.sh
+index fc12dcf..53f7363 100755
+--- a/setup.sh
++++ b/setup.sh
+@@ -31,6 +31,14 @@ if ! command_exists luau; then
+     echo "Error: luau is not installed. Please install Luau first."
+     exit 1
+ fi
++if ! command_exists elixir; then
++    echo "Error: elixir is not installed. Please install Elixir first."
++    exit 1
++fi
++if ! command_exists mix; then
++    echo "Error: mix is not installed. Please install Elixir first."
++    exit 1
++fi
+ 
+ # Install TypeScript
+ echo "Setting up TypeScript..."
+@@ -83,6 +91,11 @@ else
+ fi
+ cd ..
+ 
++echo "Setting up Elixir..."
++cd Elixir
++mix deps.get
++cd ..
++
+ echo "Setting up Sorbet..."
+ # How to fix rbenv: version `x.x.x` is not installed
+ # https://gist.github.com/esteedqueen/b605cdf78b0060299322033b6a60afc3

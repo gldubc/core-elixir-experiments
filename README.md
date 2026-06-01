@@ -12,6 +12,8 @@ The repository is organized by numbered experiments:
   informativeness instrumentation and selected open-source project results.
 - `experiments/03-dynamic-propagation-removal`: warning-count comparison between
   the full checker and a variant that removes dynamic return propagation.
+- `experiments/04-if-t-benchmark`: Elixir port of the thirteen core If-T
+  narrowing benchmark items.
 
 Each experiment directory contains its own README with the measurement, the
 paper result, the code versions used, and reproduction commands. The repository
@@ -39,6 +41,9 @@ make reproduce-experiment-02-smoke
 
 # Validate the archived dynamic-propagation removal warning table.
 make reproduce-experiment-03-smoke
+
+# Validate the archived If-T Elixir benchmark row.
+make reproduce-experiment-04-smoke
 
 # Reproduce the full guard-exactness run. This is intentionally expensive.
 make reproduce-full
