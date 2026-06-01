@@ -1,0 +1,15 @@
+project,repo_dir,repo_url,commit,date,bucket,deleted_lines,count_mode,evidence_terms,subject,notes
+Postgrex,postgrex,https://github.com/elixir-ecto/postgrex.git,3308f277f455ec64f2d0d7be6263f77f295b1325,2024-11-12,Direct,15,elixir_numstat,dead code;type system,Remove dead code found by the type system,
+Flame,flame,https://github.com/phoenixframework/flame.git,0c0c2875e42952d2691cbdb7928fc32f4715e746,2024-12-06,Direct,9,elixir_numstat,dead code;Elixir v1.18,Remove dead code found by Elixir v1.18 (#71),
+PhoenixLiveView,phoenix_live_view,https://github.com/phoenixframework/phoenix_live_view.git,6c6e2aaf6a01957cc6bb8a27d2513bff273e8ca2,2024-11-08,Direct,8,elixir_numstat,dead code;type system,Remove dead code found by the type system,
+PhoenixLiveView,phoenix_live_view,https://github.com/phoenixframework/phoenix_live_view.git,4aa5c8387d5983fc79d6d63053803ffbee0e8a56,2024-12-26,Direct,4,elixir_numstat,dead code;type system,remove dead code found by type system,
+Ecto,ecto,https://github.com/elixir-ecto/ecto.git,8d02c192dbc1b9e20576cb5f10af675dcbc2bf90,2026-03-02,Direct,4,elixir_numstat,dead code;type system,Remove dead code found by the type system,
+ExDoc,ex_doc,https://github.com/elixir-lang/ex_doc.git,fc57bdca10e36621fd68917cc6090801e66b0733,2026-02-18,Direct,11,elixir_numstat,dead code;type system,Remove dead code found by the type system,
+Livebook,livebook,https://github.com/livebook-dev/livebook.git,13e10aecc1da0804f10a4b39a50a2184a8b91855,2026-04-13,Direct,4,elixir_numstat,dead code;type system,Remove dead code found by the type system,
+Livebook,livebook,https://github.com/livebook-dev/livebook.git,80951e517d3f7e0806c2e25cebb72993e9a7563b,2026-04-13,Direct,31,elixir_numstat,dead code;compiler,Fix more dead code found by the compiler,
+Ash,ash,https://github.com/ash-project/ash.git,ccd53d847920f3640fb67797e8501792cbf6311c,2025-06-11,Direct,5,manual_hunks,unused code;1.19 type checker,improvement: support regexes in match constraint/validation again,mixed feature/fix commit; counted only isolated type-checker cleanup hunks
+Phoenix,phoenix,https://github.com/phoenixframework/phoenix.git,b1228c4fb68e7fb83a878cc83cc9d2322ab9d5e5,2025-02-17,Warning-linked,14,elixir_numstat,unused clause;Elixir 1.18,fix unused clause warning in installer on Elixir 1.18 (#6088),
+Spitfire,spitfire,https://github.com/elixir-tools/spitfire.git,434521e5d4c7721d992c3ca67d8e9a877439cf1c,2024-12-20,Warning-linked,14,elixir_numstat,warnings;elixir 1.18,fix: address warnings found by elixir 1.18 (#50),
+Postgrex,postgrex,https://github.com/elixir-ecto/postgrex.git,e4f79427e99bb0dc86376a769fc966b98edb7dfc,2026-03-09,Warning-linked,45,elixir_numstat,unused clauses,Simplify decode simple handling to avoid unused clauses,
+PhoenixLiveView,phoenix_live_view,https://github.com/phoenixframework/phoenix_live_view.git,004e5fab05f46dbdd0cf643b2e0602e7637ee860,2026-03-10,Warning-linked,4,elixir_numstat,dead code,remove dead code,
+PhoenixLiveView,phoenix_live_view,https://github.com/phoenixframework/phoenix_live_view.git,b311b7eab31e385ed0d5283ab2823763692b156e,2026-03-02,Warning-linked,11,elixir_numstat,warnings;latest Elixir,Remove warnings on latest Elixir,

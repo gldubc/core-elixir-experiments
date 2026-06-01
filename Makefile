@@ -2,10 +2,14 @@ EXPERIMENT_DIR := experiments/01-guard-exactness
 ARROW_EXPERIMENT_DIR := experiments/02-arrow-return-informativeness
 DYNAMIC_EXPERIMENT_DIR := experiments/03-dynamic-propagation-removal
 IFT_EXPERIMENT_DIR := experiments/04-if-t-benchmark
+DEAD_CODE_EXPERIMENT_DIR := experiments/05-dead-code-commit-scan
 ELIXIR_COMMIT := 095c1649c59651a959c57ed15628ea3aebc388d3
 PYTHON ?= python3
 BUILD_DIR ?= build
 ELIXIR_ROOT ?= $(BUILD_DIR)/elixir-guard-exactness
+DEAD_CODE_REPOS_ROOT ?= $(BUILD_DIR)/dead-code-commit-scan-repos
+DEAD_CODE_EXTRA_REPOS_ROOT ?=
+DEAD_CODE_OUTPUT_DIR ?= $(BUILD_DIR)/dead-code-commit-scan
 IFT_BENCHMARK_ROOT ?= /Users/gldubc/Code/research/writing/active/core-elixir/if-t-benchmarks/ifT-benchmark
 TYPESPEC_ELIXIR_BIN ?= /Users/gldubc/Code/research/elixir/worktrees/typespec-translation/bin/elixir
 IFT_OUTPUT ?= $(BUILD_DIR)/ift-benchmark-core-rerun.txt
@@ -19,13 +23,14 @@ REPO_ARGS = $(foreach repo,$(REPOS),--repo $(repo))
 SMOKE_REPO_ARGS = $(foreach repo,$(if $(REPOS),$(REPOS),ExDoc),--repo $(repo))
 RUN_ID_ARG = $(if $(RUN_ID),--run-id $(RUN_ID),)
 RUN_DIR_ARG = $(if $(RUN_DIR),--run-dir $(RUN_DIR),)
+DEAD_CODE_EXTRA_ROOT_ARG = $(if $(DEAD_CODE_EXTRA_REPOS_ROOT),--repos-root "$(DEAD_CODE_EXTRA_REPOS_ROOT)",)
 SMOKE_SCOPE = $(if $(REPOS),$(REPOS),ExDoc)
 EXTERNAL_SCOPE = $(if $(REPOS),$(REPOS),all external repos)
 confirm = @$(PYTHON) scripts/confirm.py --enabled "$(CONFIRM)" "$(1)"
 
 .DEFAULT_GOAL := help
 
-.PHONY: help clean check check-artifact verify-patch check-arrow-return verify-arrow-return-patch reproduce-experiment-02-smoke check-dynamic-propagation verify-dynamic-propagation-patch reproduce-experiment-03-smoke check-ift-benchmark reproduce-experiment-04-smoke reproduce-experiment-04-full setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
+.PHONY: help clean check check-artifact verify-patch check-arrow-return verify-arrow-return-patch reproduce-experiment-02-smoke check-dynamic-propagation verify-dynamic-propagation-patch reproduce-experiment-03-smoke check-ift-benchmark reproduce-experiment-04-smoke reproduce-experiment-04-full check-dead-code-commit-scan reproduce-experiment-05-smoke reproduce-experiment-05-full setup-elixir build-elixir prepare-deps reproduce reproduce-smoke reproduce-full summarize package-raw
 
 help:
 	@printf '%s\n' 'Core Elixir experiment artifact targets:'
@@ -39,6 +44,8 @@ help:
 	@printf '%s\n' '  make verify-dynamic-propagation-patch Check the dynamic-propagation compiler patch applies.'
 	@printf '%s\n' '  make reproduce-experiment-04-smoke    Validate the If-T Elixir benchmark row.'
 	@printf '%s\n' '  make reproduce-experiment-04-full     Rerun the If-T Elixir benchmark locally.'
+	@printf '%s\n' '  make reproduce-experiment-05-smoke    Validate the dead-code commit-scan tables.'
+	@printf '%s\n' '  make reproduce-experiment-05-full     Rerun the dead-code keyword scan from git checkouts.'
 	@printf '%s\n' '  make prepare-deps                     Prepare external repo dependencies with system Mix.'
 	@printf '%s\n' '  make summarize                        Regenerate summaries from RUN_DIR raw JSONL.'
 	@printf '%s\n' '  make package-raw                      Package RUN_DIR raw JSONL and per-site CSV.'
@@ -53,6 +60,8 @@ help:
 	@printf '%s\n' '  ELIXIR_ROOT=build/elixir-guard-exactness'
 	@printf '%s\n' '  IFT_BENCHMARK_ROOT=/path/to/ifT-benchmark'
 	@printf '%s\n' '  TYPESPEC_ELIXIR_BIN=/path/to/typespec-translation/bin/elixir'
+	@printf '%s\n' '  DEAD_CODE_REPOS_ROOT=build/dead-code-commit-scan-repos'
+	@printf '%s\n' '  DEAD_CODE_EXTRA_REPOS_ROOT=/path/to/second/repo-bucket'
 	@printf '%s\n' '  CONFIRM=0'
 
 clean:
@@ -64,7 +73,7 @@ clean:
 
 check:
 	$(call confirm,Validating committed summaries and verifying the compiler patches.)
-	@$(MAKE) --no-print-directory check-artifact verify-patch check-arrow-return verify-arrow-return-patch check-dynamic-propagation verify-dynamic-propagation-patch check-ift-benchmark CONFIRM=0
+	@$(MAKE) --no-print-directory check-artifact verify-patch check-arrow-return verify-arrow-return-patch check-dynamic-propagation verify-dynamic-propagation-patch check-ift-benchmark check-dead-code-commit-scan CONFIRM=0
 
 check-artifact:
 	$(call confirm,Validating committed guard-exactness summary artifacts.)
@@ -132,6 +141,29 @@ reproduce-experiment-04-full:
 		--benchmark-root "$(IFT_BENCHMARK_ROOT)" \
 		--elixir-bin "$(TYPESPEC_ELIXIR_BIN)" \
 		--output "$(IFT_OUTPUT)"
+
+check-dead-code-commit-scan:
+	$(call confirm,Validating committed dead-code commit-scan summary artifacts.)
+	$(PYTHON) -m py_compile $(DEAD_CODE_EXPERIMENT_DIR)/tools/dead_code_commit_scan.py
+	$(PYTHON) $(DEAD_CODE_EXPERIMENT_DIR)/tools/dead_code_commit_scan.py \
+		validate \
+		--results-dir $(DEAD_CODE_EXPERIMENT_DIR)/results
+
+reproduce-experiment-05-smoke:
+	$(call confirm,Validating the archived dead-code commit-scan tables.)
+	$(PYTHON) $(DEAD_CODE_EXPERIMENT_DIR)/tools/dead_code_commit_scan.py \
+		validate \
+		--results-dir $(DEAD_CODE_EXPERIMENT_DIR)/results
+
+reproduce-experiment-05-full:
+	$(call confirm,Rerunning the dead-code keyword scan from git checkouts into $(DEAD_CODE_OUTPUT_DIR).)
+	$(PYTHON) $(DEAD_CODE_EXPERIMENT_DIR)/tools/dead_code_commit_scan.py \
+		scan \
+		--results-dir $(DEAD_CODE_EXPERIMENT_DIR)/results \
+		--repos-root "$(DEAD_CODE_REPOS_ROOT)" \
+		$(DEAD_CODE_EXTRA_ROOT_ARG) \
+		--output-dir "$(DEAD_CODE_OUTPUT_DIR)" \
+		--clone-missing
 
 setup-elixir:
 	$(call confirm,Cloning or patching the instrumented Elixir checkout at $(ELIXIR_ROOT).)

@@ -1,0 +1,11 @@
+project,direct_commits,direct_lines,warning_linked_commits,warning_linked_lines,total_commits,total_lines
+Postgrex,1,15,1,45,2,60
+Flame,1,9,0,0,1,9
+PhoenixLiveView,2,12,2,15,4,27
+Ecto,1,4,0,0,1,4
+ExDoc,1,11,0,0,1,11
+Livebook,2,35,0,0,2,35
+Ash,1,5,0,0,1,5
+Phoenix,0,0,1,14,1,14
+Spitfire,0,0,1,14,1,14
+TOTAL,9,91,5,88,14,179
